@@ -45,6 +45,20 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0c1222;fon
 .act.big{width:82px;height:82px;font-size:30px;right:0;bottom:0;background:rgba(160,40,40,.5)}
 #bInt{right:92px;bottom:2px}#bInt.hot{border-color:#ffe27a;box-shadow:0 0 12px #ffd24a;background:rgba(120,90,20,.55)}
 #bSkill{right:14px;bottom:94px}#bSkill.dim{opacity:.55}
+#bRage{position:fixed;left:calc(12px + env(safe-area-inset-left));top:46%;width:60px;height:60px;border-radius:50%;display:none;align-items:center;justify-content:center;flex-direction:column;pointer-events:auto;
+  border:2px solid #8a2018;background:radial-gradient(circle,rgba(90,10,10,.75),rgba(20,4,4,.8));color:#ffd0a0;font-size:22px;line-height:1;z-index:6;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:none}
+#bRage small{font-size:9px;margin-top:2px;letter-spacing:.05em}
+#bRage svg{position:absolute;inset:-6px;width:72px;height:72px;transform:rotate(-90deg);pointer-events:none}
+#bRage.show{display:flex}
+body.raging #hud>*:not(#rageFx):not(#rageT),body.raging #tags,body.raging #joyBase{display:none!important}
+body.layEdit #bRage{display:flex!important}body.layEdit #altBtns{display:flex!important}body.layEdit #toast{top:auto;bottom:45%}
+body.layEdit #hud{background:rgba(0,0,0,.25)}.laySel{outline:3px dashed #ffd76a;outline-offset:4px}
+#layBar{position:fixed;left:50%;top:calc(12px + env(safe-area-inset-top));transform:translateX(-50%);z-index:60;padding:10px 14px;border-radius:10px;border:2px solid #b8913e;background:var(--stone),#121a30;color:#f4dc98;text-align:center;max-width:94vw}
+#layBar .lt{font-size:13px;margin-bottom:6px}#layBar .btns{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}#layBar button[disabled]{opacity:.4}#bRage.go{animation:rgP .5s infinite alternate}
+@keyframes rgP{from{box-shadow:0 0 6px #ff2a10}to{box-shadow:0 0 22px #ff5a20}}
+#rageFx{position:fixed;inset:0;pointer-events:none;z-index:4;display:none;box-shadow:inset 0 0 120px 30px rgba(200,10,0,.55);animation:rgV .35s infinite alternate}
+@keyframes rgV{from{opacity:.65}to{opacity:1}}
+#rageT{position:fixed;left:50%;top:118px;transform:translateX(-50%);z-index:6;pointer-events:none;display:none;font:700 26px 'Hiragino Mincho ProN','Yu Mincho',serif;color:#ffd080;text-shadow:0 0 10px #ff2000,0 2px 0 #400}
 #bJump{right:80px;bottom:72px}#bRide{right:156px;bottom:14px}
 #altBtns{position:absolute;right:150px;bottom:84px;display:none;flex-direction:column;gap:6px}
 #altBtns button{width:44px;height:40px;border-radius:12px;border:2px solid rgba(255,255,255,.45);background:rgba(16,22,44,.5);color:#fff;font-size:16px}
@@ -168,12 +182,15 @@ button.decide.on::after{opacity:1;animation:sweep 3.2s ease-in-out infinite}
 button.decide:active,button.decide.press{transform:translateY(2px) scale(.98);filter:brightness(.82);animation:none}
 @keyframes sweep{0%{background-position:120% 0}60%,100%{background-position:-60% 0}}
 @keyframes litGlowBig{0%,100%{box-shadow:0 0 8px 1px rgba(255,206,110,.45),0 0 0 1px rgba(255,220,140,.25)}50%{box-shadow:0 0 22px 5px rgba(255,214,120,.7),0 0 0 1px rgba(255,230,160,.5)}}
+#bInt::after{content:'';position:absolute;inset:-5px;border-radius:50%;pointer-events:none;background:conic-gradient(rgba(255,214,120,.95) calc(var(--hp,0)*360deg),transparent 0);-webkit-mask:radial-gradient(circle,transparent 64%,#000 66%);mask:radial-gradient(circle,transparent 64%,#000 66%)}
+#joyKnob.run{background:radial-gradient(circle at 40% 35%,#fff6d0,#f0b840);box-shadow:0 0 14px 4px rgba(255,200,90,.8)}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
 <div id="tone"></div>
 <div id="hud">
+  <div id="rageFx"></div><div id="rageT"></div><button id="bRage">💢<small>暴走</small><svg viewBox="0 0 72 72"><circle cx="36" cy="36" r="33" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="4"/><circle id="rageRing" cx="36" cy="36" r="33" fill="none" stroke="#ff5020" stroke-width="4" stroke-dasharray="207.3" stroke-dashoffset="207.3"/></svg></button>
   <div id="tl">
     <div class="bar"><span class="bl">HP</span><div class="bg"><div id="bHp" class="fill hp"></div></div><span id="tHp" class="bv"></span></div>
     <div class="bar"><span class="bl">ST</span><div class="bg"><div id="bSt" class="fill st"></div></div><span class="bv"></span></div>
@@ -242,16 +259,25 @@ const MAXLV=60;
 
 // ================= バイオーム =================
 const BIOMES={
-  meadow:{n:'始まりの草原',c:[0,30],lv:[1,4],sky:0x9fd4ff},
-  forest:{n:'翠緑の大森林',c:[-115,70],lv:[3,8],sky:0x9cd0c0},
-  swamp:{n:'霧の湿地',c:[-150,175],lv:[5,10],sky:0xa8b8b0},
-  lake:{n:'碧の湖畔',c:[75,165],lv:[6,12],sky:0x9fdcff},
-  desert:{n:'黄昏の荒野',c:[155,105],lv:[9,16],sky:0xf0d0a0},
-  volcano:{n:'灼熱の火山地帯',c:[150,-75],lv:[13,22],sky:0xd89070},
-  snow:{n:'氷雪の峰',c:[0,-165],lv:[13,22],sky:0xd8e8ff},
-  ruins:{n:'雷鳴の古代遺跡・深淵',c:[-150,-115],lv:[22,35],sky:0x9a88c0},
-  cave:{n:'地底の大空洞',c:[820,0],lv:[14,26],sky:0x1a2034},
-  sky:{n:'天空の浮島',c:[-820,0],lv:[22,36],sky:0xd8e6ff},
+  meadow:{n:'始まりの草原',c:[0,60],lv:[1,4],sky:0x9fd4ff},
+  forest:{n:'翠緑の大森林',c:[-230,140],lv:[3,8],sky:0x9cd0c0},
+  swamp:{n:'霧の湿地',c:[-300,350],lv:[5,10],sky:0xa8b8b0},
+  lake:{n:'碧の湖畔',c:[150,330],lv:[6,12],sky:0x9fdcff},
+  desert:{n:'黄昏の荒野',c:[310,210],lv:[9,16],sky:0xf0d0a0},
+  volcano:{n:'灼熱の火山地帯',c:[300,-150],lv:[13,22],sky:0xd89070},
+  snow:{n:'氷雪の峰',c:[0,-330],lv:[13,22],sky:0xd8e8ff},
+  ruins:{n:'雷鳴の古代遺跡・深淵',c:[-300,-230],lv:[22,35],sky:0x9a88c0},
+  flowerhills:{n:'花咲く丘陵',c:[130,90],lv:[2,6],sky:0xb0dcff,alt:'meadow'},
+  autumn:{n:'紅葉の山林',c:[-110,-70],lv:[7,13],sky:0xf0c8a0,alt:'forest'},
+  sakura:{n:'桜霞の谷',c:[-110,300],lv:[5,11],sky:0xf6d0e0,alt:'forest'},
+  beach:{n:'珊瑚の白浜',c:[20,385],lv:[3,8],sky:0xa8e8ff,alt:'lake'},
+  mushroom:{n:'巨大キノコの森',c:[-385,20],lv:[10,16],sky:0xc0a8d8,alt:'swamp'},
+  canyon:{n:'赤岩の大峡谷',c:[390,20],lv:[12,20],sky:0xf0b890,alt:'desert'},
+  crystal:{n:'水晶の渓谷',c:[160,-335],lv:[18,26],sky:0xc8e0ff,alt:'snow'},
+  tundra:{n:'凍てつく氷原',c:[-150,-390],lv:[18,26],sky:0xdce8f4,alt:'snow'},
+  ocean:{n:'果てしない外洋',c:[0,0],lv:[12,30],sky:0x8ac8f0},
+  cave:{n:'地底の大空洞',c:[2000,0],lv:[14,26],sky:0x1a2034},
+  sky:{n:'天空の浮島',c:[-2000,0],lv:[22,36],sky:0xd8e6ff},
 };
 const BIOME_KEYS=Object.keys(BIOMES);
 
@@ -763,6 +789,214 @@ SPECIES_LIST.push({id:'miragemaw',name:'ミラージュモウ',el:'earth',biome:
   legs:{n:0},wings:{t:'fin',span:1.3,seg:0,flight:false},spikes:{s:'none'},pat:'scales',extras:['dorsalFin'],col:{b:0xd8b878,u:0xf2e6c4,a:0x6ac8e0,h:0xfff4dc,e:0x40e0ff,w:0x8ac8d8,g:0x80e8ff},
   breath:{n:'流砂の顎',k:'chomp'},egg:{c1:0xd8b878,c2:0x6ac8e0,pat:'spots',sz:0.6,el:1.1,deco:'rock'},
   desc:'砂の中を泳ぐ魚のような竜。地面にくぼみを作って口を広げ、その奥を水たまりに見せかけて獲物を待つ。近づいた者を砂ごと丸のみにするが、かみつき損ねると砂の上に打ち上げられてしまう。'});
+// ---- 小さな生き物の大群でできた竜（中心の光るちび竜が魂の核） ----
+SPECIES_LIST.push({id:'legion',name:'レギオンドラゴン',el:'thunder',biome:'swamp',size:0.75,plan:'fairy',gait:'hover',fly:true,float:true,noFeet:true,swarm:true,mat:'pulse',tier:3,aggro:2,w:0.6,hp:200,atk:18,def:10,spd:4.6,
+  head:{s:'blunt',l:0.55,w:0.55,h:0.52},horn:{s:'nub',l:0.35},neckN:1,neckL:0.2,neckRise:0.6,bodyN:2,bodyL:0.34,bodyR:0.36,bodyH:1.0,tailN:3,tailL:0.3,tip:'lantern',
+  legs:{n:0},wings:{t:'feather',span:0.9},spikes:{s:'none'},pat:'plain',extras:['halo'],col:{b:0xfff2c8,u:0xffffff,a:0xffd060,h:0xfff6dc,e:0x6a3aa0,w:0xfff0d0,g:0xffe080},
+  breath:{n:'群れの奔流',k:'nova'},egg:{c1:0xfff0c8,c2:0x6a3aa0,pat:'spots',sz:0.4,el:1.2,deco:'gem'},
+  desc:'何百もの小さな羽虫竜が集まって、一匹の大きな竜の形を作っている。群れの中心で光るちび竜が魂の核で、群れを散らして核を捕食すると、その群れごと従えて変身できる。'});
+// ================= 新バイオームの竜たち（新しい形・色） =================
+SPECIES_LIST.push(
+ // ---- 花咲く丘陵 ----
+ {id:'bouquetdrake',name:'ブーケドレイク',el:'grass',biome:'flowerhills',size:1.4,tier:2,aggro:0,w:2,hp:90,atk:10,def:9,spd:4.6,
+  head:{s:'blunt',l:0.55,w:0.48,h:0.44},horn:{s:'none',l:0},neckN:2,neckL:0.45,neckRise:0.5,bodyN:2,bodyL:0.5,bodyR:0.5,bodyH:0.95,tailN:5,tailL:0.36,tip:'flower',
+  legs:{n:4,l:0.55,th:0.15},spikes:{s:'garden',z:0.3},pat:'plain',extras:['flowerCrown','ribbon'],col:{b:0xbfead8,u:0xfff8f0,a:0xf8a8c8,h:0xc8b8ff,e:0x4a6a5a,w:0xbfead8,g:0xffe0f0},
+  breath:{n:'花束の祝福',k:'heal'},egg:{c1:0xd8f4e8,c2:0xf8a8c8,pat:'spots',sz:0.42,el:1.2,deco:'flower'},
+  desc:'背中に花束を背負い、頭に花かんむりをのせた小さな竜。しっぽのリボンをなびかせて丘を散歩する。'},
+ {id:'cranedrake',name:'クレインドラゴン',el:'water',biome:'flowerhills',size:2.2,plan:'raptor',gait:'run',tier:3,aggro:0,w:1,hp:150,atk:17,def:10,spd:6,
+  head:{s:'beak',l:0.75,w:0.26,h:0.24},horn:{s:'crest',l:0.4},neckN:6,neckL:1.4,neckRise:0.9,bodyN:2,bodyL:0.45,bodyR:0.4,bodyH:1.0,tailN:4,tailL:0.32,tip:'fan',
+  legs:{n:2,l:1.9,th:0.06},wings:{t:'feather',span:2.2,flight:false},spikes:{s:'none'},pat:'plain',col:{b:0xfafaf6,u:0xffffff,a:0xe03a3a,h:0xe03a3a,e:0x202020,w:0xf4f4f0,g:0xffe0e0},
+  breath:{n:'しぶき突き',k:'spray'},egg:{c1:0xfafaf6,c2:0xe03a3a,pat:'spots',sz:0.5,el:1.35,deco:'fluff'},
+  desc:'竹馬のように長い脚と首を持つ、鶴のような竜。赤いとさかを揺らして、花畑の中を優雅に歩く。'},
+ {id:'bumbledrake',name:'バンブルドラゴン',el:'thunder',biome:'flowerhills',size:3.4,gait:'scuttle',fly:true,tier:4,aggro:1,w:0.5,hp:300,atk:26,def:22,spd:4.4,when:'day',
+  head:{s:'blunt',l:0.55,w:0.6,h:0.52},horn:{s:'antenna',l:0.8},neckN:1,neckL:0.2,neckRise:0.3,bodyN:3,bodyL:0.55,bodyR:0.78,bodyH:0.95,tailN:2,tailL:0.35,tip:'stinger',
+  legs:{n:6,l:0.55,th:0.08,splay:1.5},wings:{t:'moth',span:1.6},spikes:{s:'fur',z:0.25},pat:'bands',extras:['snowCloak'],col:{b:0xf8c830,u:0xfff0a0,a:0x2a2018,h:0x2a2018,e:0x101010,w:0xe8f4ff,g:0xfff4a0},
+  breath:{n:'花粉の嵐',k:'radial'},egg:{c1:0xf8c830,c2:0x2a2018,pat:'bands',sz:0.6,el:1.0,deco:'fluff'},
+  desc:'もこもこの毛に包まれた、まるまる太った蜂の竜。花の蜜を集めて丘を飛び回るが、巣をおびやかす者には毒針を向ける。'},
+ // ---- 紅葉の山林 ----
+ {id:'maplewyvern',name:'メープルワイバーン',el:'fire',biome:'autumn',size:2.4,plan:'wyvern',fly:true,tier:3,aggro:1,w:1.2,hp:170,atk:21,def:12,spd:6.5,
+  head:{s:'long',l:0.62,w:0.34,h:0.3},horn:{s:'back',l:0.55},neckN:3,neckL:0.8,neckRise:0.5,bodyN:2,bodyL:0.5,bodyR:0.42,bodyH:1.0,tailN:7,tailL:0.42,tip:'leaf',
+  legs:{l:0.8,th:0.12},wings:{t:'maple',span:2.6},spikes:{s:'leaf',z:0.2},pat:'plain',col:{b:0xc83a20,u:0xf0c070,a:0xf08a20,h:0xffd060,e:0xfff0a0,w:0xe05a20,g:0xffc040},
+  breath:{n:'紅葉吹雪',k:'cone'},egg:{c1:0xd84a20,c2:0xffc040,pat:'swirl',sz:0.5,el:1.25,deco:'leafy'},
+  desc:'翼がまっ赤なカエデの葉になった飛竜。羽ばたくと紅葉が舞い散り、秋の山を燃えるような色に染める。'},
+ {id:'lanterndrake',name:'チョウチンドラゴン',el:'fire',biome:'autumn',size:1.6,tier:2,aggro:0,w:1.6,hp:100,atk:12,def:10,spd:4.2,when:'night',
+  head:{s:'blunt',l:0.5,w:0.52,h:0.48},horn:{s:'ears',l:0.26},neckN:1,neckL:0.3,neckRise:0.4,bodyN:2,bodyL:0.5,bodyR:0.58,bodyH:0.95,tailN:8,tailL:0.38,tip:'lantern',
+  legs:{n:4,l:0.5,th:0.17},spikes:{s:'none'},pat:'stripe',extras:['lanterns','eyePatch'],col:{b:0x8a6a4a,u:0xe8d8c0,a:0xe83a2a,h:0x3a2a20,e:0x201810,w:0x8a6a4a,g:0xffc860},
+  breath:{n:'ちょうちん火',k:'orb'},egg:{c1:0x8a6a4a,c2:0xe83a2a,pat:'bands',sz:0.45,el:1.15,deco:'flame'},
+  desc:'長いしっぽにいくつもの提灯をぶら下げた、たぬきのような竜。秋の夜、灯りをともして山道をのんびり歩く。'},
+ {id:'acornbehemoth',name:'ドングリベヒモス',el:'earth',biome:'autumn',size:4.0,gait:'waddle',tier:4,aggro:1,w:0.45,capPlain:true,hp:400,atk:28,def:32,spd:2.6,
+  head:{s:'blunt',l:0.6,w:0.5,h:0.46},horn:{s:'antler',l:0.8},neckN:1,neckL:0.4,neckRise:0.2,bodyN:2,bodyL:0.62,bodyR:0.82,bodyH:0.92,tailN:3,tailL:0.35,tip:'club',
+  legs:{n:4,l:0.6,th:0.3},spikes:{s:'none'},pat:'plain',extras:['mushCap','leafCanopy'],col:{b:0xb07a40,u:0xe8c890,a:0x6a4424,h:0x5a3a20,e:0x201008,w:0xb07a40,g:0x8a5a30},
+  breath:{n:'どんぐり爆弾',k:'meteor'},egg:{c1:0xb07a40,c2:0x6a4424,pat:'crackle',sz:0.75,el:1.2,deco:'leafy'},
+  desc:'背中にどんぐりの帽子のような甲羅をかぶった巨竜。角には紅葉が茂り、歩いたあとにはどんぐりが転がる。'},
+ // ---- 桜霞の谷 ----
+ {id:'sakuradragon',name:'サクラリュウ',el:'grass',biome:'sakura',size:3.3,plan:'serpent',gait:'swimair',fly:true,float:true,tier:4,aggro:1,w:0.5,hp:300,atk:26,def:18,spd:6,
+  head:{s:'serpent',l:0.8,w:0.38,h:0.32},horn:{s:'sakura',l:0.9},neckN:0,neckL:0,bodyN:20,bodyL:0.52,bodyR:0.3,bodyH:0.95,tailN:0,tip:'flower',legs:{n:0},
+  spikes:{s:'fur',z:0.18},extras:['whiskers','mane'],col:{b:0xfff0f4,u:0xffffff,a:0xf6a8c8,h:0xf8c0d8,e:0xc02a5a,w:0xfff0f4,g:0xffd0e0},
+  breath:{n:'千本桜',k:'beam'},egg:{c1:0xfff0f4,c2:0xf6a8c8,pat:'swirl',sz:0.6,el:1.3,deco:'flower'},
+  desc:'角に満開の桜を咲かせた、東洋の龍。春霞の谷をゆったりと泳ぐように飛び、通ったあとには花びらの川ができる。'},
+ {id:'petalfox',name:'ハナビラギツネ',el:'grass',biome:'sakura',size:1.1,tier:2,aggro:0,w:1.8,hp:75,atk:11,def:7,spd:7.2,
+  head:{s:'long',l:0.55,w:0.34,h:0.3},horn:{s:'ears',l:0.36},neckN:1,neckL:0.3,neckRise:0.5,bodyN:2,bodyL:0.45,bodyR:0.36,bodyH:1.0,tailN:6,tailL:0.45,tailR:1.5,tip:'fluff',
+  legs:{n:4,l:0.7,th:0.1},spikes:{s:'fur',z:0.12},pat:'stripe',extras:['ribbon'],col:{b:0xfff6f2,u:0xffffff,a:0xf090b0,h:0xf8c0d0,e:0xc0306a,w:0xfff6f2,g:0xffc8dc},
+  breath:{n:'花びら化かし',k:'spray'},egg:{c1:0xfff6f2,c2:0xf090b0,pat:'spots',sz:0.38,el:1.3,deco:'flower'},
+  desc:'ふさふさのしっぽの先が桜色に染まった、きつねのような小竜。花びらにまぎれて人を化かすのが大好き。'},
+ {id:'bamboodrake',name:'バンブードレイク',el:'earth',biome:'sakura',size:2.6,tier:3,aggro:1,w:1,hp:200,atk:20,def:20,spd:4.2,
+  head:{s:'blunt',l:0.6,w:0.42,h:0.4},horn:{s:'twin',l:0.6},neckN:2,neckL:0.6,neckRise:0.4,bodyN:3,bodyL:0.55,bodyR:0.5,bodyH:0.9,tailN:5,tailL:0.4,tip:'club',
+  legs:{n:4,l:0.8,th:0.2},spikes:{s:'pillar',z:0.35},pat:'bands',col:{b:0x6aa848,u:0xd8e8a8,a:0x3a7a2a,h:0xe8f0c8,e:0x202010,w:0x6aa848,g:0xc8f0a0},
+  breath:{n:'竹やり',k:'radial'},egg:{c1:0x6aa848,c2:0x3a7a2a,pat:'bands',sz:0.55,el:1.3,deco:'leafy'},
+  desc:'背中に竹の節のような柱を何本も生やした竜。一晩でぐんぐん伸びる背中の竹を、ほかの竜がこっそりかじりに来る。'},
+ // ---- 珊瑚の白浜 ----
+ {id:'hermitdrake',name:'ヤドカリドラゴン',el:'water',biome:'beach',size:2.0,gait:'scuttle',arms:true,tier:2,aggro:1,w:1.6,hp:150,atk:16,def:22,spd:3.8,
+  head:{s:'blunt',l:0.5,w:0.42,h:0.36},horn:{s:'antenna',l:0.6},neckN:1,neckL:0.25,neckRise:0.3,bodyN:2,bodyL:0.45,bodyR:0.5,bodyH:0.85,tailN:3,tailL:0.3,tip:'pincer',
+  legs:{n:6,l:0.6,th:0.09,splay:1.6},spikes:{s:'none'},pat:'spots',extras:['spiralShell'],col:{b:0xf07a50,u:0xffd8c0,a:0xf4e8d8,h:0xd88a6a,e:0x101010,w:0xf07a50,g:0x90f0ff},
+  breath:{n:'あわ鉄砲',k:'spray'},egg:{c1:0xf4e8d8,c2:0xf07a50,pat:'shell',sz:0.5,el:1.0,deco:'pearl'},
+  desc:'大きな巻き貝を背負ったヤドカリの竜。体が大きくなるたびに、浜辺でもっと大きな貝殻を探して引っ越す。'},
+ {id:'coralstag',name:'コーラルスタッグ',el:'water',biome:'beach',size:2.7,tier:3,aggro:0,w:1,hp:210,atk:19,def:15,spd:6,
+  head:{s:'long',l:0.6,w:0.32,h:0.3},horn:{s:'coral',l:1.0},neckN:3,neckL:0.85,neckRise:0.65,bodyN:2,bodyL:0.55,bodyR:0.45,bodyH:1.0,tailN:4,tailL:0.3,tip:'fan',
+  legs:{n:4,l:1.25,th:0.11},spikes:{s:'none'},pat:'spots',col:{b:0x40c8c0,u:0xe0fff8,a:0xff7a9a,h:0xffb060,e:0x1a3a4a,w:0x40c8c0,g:0xa0fff0},
+  breath:{n:'珊瑚の光',k:'nova'},egg:{c1:0x40c8c0,c2:0xff7a9a,pat:'spots',sz:0.55,el:1.3,deco:'pearl'},
+  desc:'鹿のような細い脚と、色とりどりの珊瑚の角を持つ竜。満ち潮の浅瀬を跳ねるように駆けていく。'},
+ {id:'gullwyvern',name:'シーガルワイバーン',el:'water',biome:'beach',size:1.7,plan:'wyvern',fly:true,tier:2,aggro:1,w:1.6,hp:105,atk:14,def:8,spd:7.4,
+  head:{s:'beak',l:0.55,w:0.3,h:0.28},horn:{s:'none',l:0},neckN:2,neckL:0.45,neckRise:0.5,bodyN:2,bodyL:0.45,bodyR:0.38,bodyH:1.0,tailN:5,tailL:0.35,tip:'fan',
+  legs:{l:0.6,th:0.08},wings:{t:'feather',span:3.2},spikes:{s:'none'},pat:'plain',extras:['eyePatch'],col:{b:0xf6f8fa,u:0xffffff,a:0x7a8494,h:0xf8c030,e:0x101010,w:0x8a94a4,g:0xfff4c0},
+  breath:{n:'急降下',k:'chomp'},egg:{c1:0xe8eef4,c2:0x7a8494,pat:'spots',sz:0.4,el:1.25,deco:'fluff'},
+  desc:'白い体に灰色の長い翼を持つ、かもめの竜。浜辺で落とし物を狙い、気づいた時にはもう空の上。'},
+ // ---- 巨大キノコの森 ----
+ {id:'capbehemoth',name:'キノコベヒモス',el:'grass',biome:'mushroom',size:4.2,gait:'waddle',tier:4,aggro:1,w:0.45,hp:420,atk:27,def:30,spd:2.4,
+  head:{s:'blunt',l:0.55,w:0.5,h:0.46},horn:{s:'nub',l:0.4},neckN:1,neckL:0.3,neckRise:0.15,bodyN:2,bodyL:0.62,bodyR:0.8,bodyH:0.92,tailN:3,tailL:0.3,tip:'nub',
+  legs:{n:4,l:0.55,th:0.32},spikes:{s:'moss',z:0.2},pat:'spots',extras:['mushCap'],col:{b:0xe8dcc8,u:0xfff4e8,a:0x9a4ad0,h:0xd8c0a8,e:0x3a1a5a,w:0xe8dcc8,g:0x90f8ff},
+  breath:{n:'胞子の霧',k:'radial'},egg:{c1:0xe8dcc8,c2:0x9a4ad0,pat:'spots',sz:0.75,el:1.1,deco:'moss'},
+  desc:'背中に巨大な光るキノコを育てる、のんびりした巨竜。じっとしているとキノコの森の一部にしか見えない。'},
+ {id:'sporemoth',name:'スポアモス',el:'grass',biome:'mushroom',size:1.5,plan:'fairy',gait:'hover',fly:true,float:true,tier:3,aggro:1,w:1.2,hp:110,atk:16,def:8,spd:5,when:'night',
+  head:{s:'blunt',l:0.45,w:0.42,h:0.4},horn:{s:'antenna',l:0.9},neckN:1,neckL:0.2,neckRise:0.6,bodyN:2,bodyL:0.4,bodyR:0.36,bodyH:1.0,tailN:4,tailL:0.32,tip:'lantern',
+  legs:{n:0},wings:{t:'moth',span:1.9,pairs:2},spikes:{s:'fur',z:0.2},pat:'spots',col:{b:0x6a4a9a,u:0xd8c8f0,a:0x40f0e0,h:0xe8d8ff,e:0x80fff0,w:0x8a5ac0,g:0x80fff0},
+  breath:{n:'光る鱗粉',k:'nova'},egg:{c1:0x6a4a9a,c2:0x40f0e0,pat:'spots',sz:0.4,el:1.2,deco:'jelly'},
+  desc:'光るキノコの胞子を浴びて育つ蛾の竜。夜になると翅の目玉もようが青く光り、森に幻想的な灯りをともす。'},
+ {id:'myceliumwyrm',name:'ミセリウムワーム',el:'grass',biome:'mushroom',size:2.8,plan:'wyrm',gait:'slither',tier:3,aggro:2,w:0.8,hp:200,atk:22,def:14,spd:4.6,
+  head:{s:'maw',l:0.6,w:0.5,h:0.44},horn:{s:'antenna',l:0.7},neckN:0,neckL:0,bodyN:14,bodyL:0.48,bodyR:0.36,bodyH:0.95,tailN:0,tip:'fork',legs:{n:0},
+  spikes:{s:'garden',z:0.25},pat:'stripe',extras:['tentacles'],col:{b:0xf0ece0,u:0xfffcf4,a:0xc070f0,h:0xffffff,e:0xc070f0,w:0xf0ece0,g:0xd8a0ff},
+  breath:{n:'菌糸のあみ',k:'spray'},egg:{c1:0xf0ece0,c2:0xc070f0,pat:'stripes',sz:0.5,el:1.3,deco:'moss'},
+  desc:'白い菌糸の束が竜の形になった長虫。背中から小さなキノコを生やし、地面の下に森じゅうへ根を張りめぐらせている。'},
+ // ---- 赤岩の大峡谷 ----
+ {id:'mesatitan',name:'メサタイタン',el:'earth',biome:'canyon',size:4.6,gait:'waddle',tier:5,aggro:1,w:0.3,hp:560,atk:34,def:38,spd:2.2,
+  head:{s:'blunt',l:0.62,w:0.52,h:0.48},horn:{s:'twin',l:0.7},neckN:2,neckL:0.6,neckRise:0.2,bodyN:3,bodyL:0.6,bodyR:0.72,bodyH:0.85,tailN:5,tailL:0.4,tip:'club',
+  legs:{n:4,l:0.75,th:0.32},spikes:{s:'none'},pat:'bands',extras:['hoodooBack','cracks'],col:{b:0xb8583a,u:0xe0a070,a:0xd07a4a,h:0xe8b888,e:0xffd070,w:0xb8583a,g:0xffa040},
+  breath:{n:'岩層くずし',k:'meteor'},egg:{c1:0xb8583a,c2:0xe8b888,pat:'bands',sz:0.85,el:1.1,deco:'rock'},
+  desc:'背中に峡谷のテーブル台地を何段も重ねた超巨竜。何千年もかけて地層が積もり、背中そのものが小さな峡谷になっている。'},
+ {id:'condordrake',name:'コンドルドラゴン',el:'earth',biome:'canyon',size:3.0,plan:'wyvern',fly:true,tier:4,aggro:2,w:0.7,hp:260,atk:28,def:16,spd:7,
+  head:{s:'beak',l:0.6,w:0.32,h:0.32},horn:{s:'none',l:0},neckN:3,neckL:0.8,neckRise:0.4,bodyN:2,bodyL:0.58,bodyR:0.5,bodyH:1.0,tailN:5,tailL:0.38,tip:'fan',
+  legs:{l:0.85,th:0.14},wings:{t:'feather',span:4.2},spikes:{s:'none'},pat:'plain',extras:['mane'],col:{b:0x3a2a24,u:0x5a4a40,a:0xf4ece0,h:0xe8b0a0,e:0xffd040,w:0x2a201c,g:0xffd080},
+  breath:{n:'峡谷おろし',k:'cone'},egg:{c1:0x5a4a40,c2:0xf4ece0,pat:'spots',sz:0.6,el:1.2,deco:'fluff'},
+  desc:'首まわりに白い羽毛の襟をまとった、黒いハゲワシの竜。峡谷の上昇気流に乗って、何時間も羽ばたかずに空を回る。'},
+ {id:'thornylizard',name:'ツノトカゲドレイク',el:'fire',biome:'canyon',size:1.4,tier:2,aggro:1,w:1.6,hp:95,atk:14,def:14,spd:5.2,
+  head:{s:'blunt',l:0.5,w:0.55,h:0.3},horn:{s:'crown',l:0.6},neckN:1,neckL:0.2,neckRise:0.1,bodyN:2,bodyL:0.5,bodyR:0.62,bodyH:0.55,tailN:5,tailL:0.35,tip:'spike',
+  legs:{n:4,l:0.4,th:0.12,splay:1.8},spikes:{s:'thorn',z:0.2},pat:'spots',extras:['crownHorns'],col:{b:0xd89a5a,u:0xf4dcb0,a:0x8a4a2a,h:0xf4e0c0,e:0x201010,w:0xd89a5a,g:0xff6a3a},
+  breath:{n:'目から血しぶき',k:'spray'},egg:{c1:0xd89a5a,c2:0x8a4a2a,pat:'spots',sz:0.4,el:1.1,deco:'thorns'},
+  desc:'平たい体にとげの王冠をかぶった、つのとかげの竜。ピンチになると目から熱い血をぴゅっと飛ばして驚かせる。'},
+ // ---- 水晶の渓谷 ----
+ {id:'geodebeast',name:'ジオードビースト',el:'earth',biome:'crystal',size:3.4,tier:4,aggro:1,w:0.7,hp:330,atk:26,def:32,spd:3.4,
+  head:{s:'blunt',l:0.6,w:0.48,h:0.42},horn:{s:'single',l:0.8},neckN:2,neckL:0.5,neckRise:0.25,bodyN:3,bodyL:0.55,bodyR:0.62,bodyH:0.85,tailN:5,tailL:0.4,tip:'club',
+  legs:{n:4,l:0.75,th:0.26},spikes:{s:'crystal',z:0.25},pat:'plain',extras:['geode','cracks'],col:{b:0x6a6470,u:0xa8a0b0,a:0xb06ae0,h:0xe0d0ff,e:0xff80ff,w:0x6a6470,g:0xd8a0ff},
+  breath:{n:'紫晶の散弾',k:'radial'},egg:{c1:0x6a6470,c2:0xb06ae0,pat:'crackle',sz:0.7,el:1.1,deco:'gem'},
+  desc:'灰色の岩の体のあちこちが割れて、中から紫水晶がのぞいている竜。割れ目が増えるほど美しく強くなる。'},
+ {id:'prismfinch',name:'プリズムフィンチ',el:'thunder',biome:'crystal',size:0.7,plan:'fairy',gait:'hover',fly:true,float:true,mat:'shift',tier:3,aggro:0,w:1.4,hp:70,atk:14,def:8,spd:7,
+  head:{s:'beak',l:0.4,w:0.36,h:0.36},horn:{s:'crest',l:0.5},neckN:1,neckL:0.15,neckRise:0.7,bodyN:2,bodyL:0.32,bodyR:0.34,bodyH:1.0,tailN:4,tailL:0.36,tip:'fan',
+  legs:{n:0},wings:{t:'crystal',span:1.3},spikes:{s:'none'},pat:'plain',col:{b:0xd0e8ff,u:0xffffff,a:0xff90d0,h:0xa0f0ff,e:0x2a2a6a,w:0xe0f4ff,g:0xffffff},
+  breath:{n:'虹のさえずり',k:'bolt'},egg:{c1:0xe0f0ff,c2:0xff90d0,pat:'rainbow',sz:0.3,el:1.25,deco:'gem'},
+  desc:'水晶の翼を持つ小鳥の竜。光を浴びると体が虹色に移ろい、渓谷じゅうに七色の光を散らしてさえずる。'},
+ {id:'glasswyvern',name:'グラスワイバーン',el:'thunder',biome:'crystal',size:2.8,plan:'wyvern',fly:true,mat:'ghost',tier:4,aggro:2,w:0.6,hp:240,atk:28,def:14,spd:7,
+  head:{s:'long',l:0.66,w:0.34,h:0.3},horn:{s:'back',l:0.8},neckN:3,neckL:0.9,neckRise:0.5,bodyN:2,bodyL:0.55,bodyR:0.44,bodyH:1.0,tailN:8,tailL:0.45,tip:'blade',
+  legs:{l:0.85,th:0.12},wings:{t:'crystal',span:3.4},spikes:{s:'crystal',z:0.2},pat:'plain',col:{b:0xd8f4ff,u:0xffffff,a:0x80d0ff,h:0xffffff,e:0x40a0ff,w:0xe8f8ff,g:0xc0f0ff},
+  breath:{n:'光の屈折',k:'beam'},egg:{c1:0xe8f8ff,c2:0x80d0ff,pat:'crackle',sz:0.55,el:1.3,deco:'gem'},
+  desc:'ガラスのように透きとおった体の飛竜。光の中では姿がほとんど見えず、渓谷に響く羽音だけが居場所を教える。'},
+ // ---- 凍てつく氷原 ----
+ {id:'yetidrake',name:'イエティドレイク',el:'water',biome:'tundra',size:3.8,tier:4,aggro:2,w:0.6,arms:true,hp:380,atk:30,def:24,spd:3.6,
+  head:{s:'blunt',l:0.55,w:0.55,h:0.5},horn:{s:'curl',l:0.8},neckN:1,neckL:0.35,neckRise:0.35,bodyN:2,bodyL:0.6,bodyR:0.72,bodyH:1.05,tailN:3,tailL:0.3,tip:'fluff',
+  legs:{n:4,l:0.8,th:0.32},spikes:{s:'fur',z:0.3},pat:'plain',extras:['snowCloak','fur'],col:{b:0xe8eef4,u:0xffffff,a:0x8ab0d0,h:0xc8d8e8,e:0x3a6aa0,w:0xe8eef4,g:0xd0f0ff},
+  breath:{n:'吹雪のおたけび',k:'cone'},egg:{c1:0xf0f4f8,c2:0x8ab0d0,pat:'spots',sz:0.75,el:1.1,deco:'fluff'},
+  desc:'雪のような長い毛に全身をおおわれた大型の竜。吹雪の中から突然あらわれ、ぐるぐる巻きの角で体当たりしてくる。'},
+ {id:'sealdrake',name:'アザラシドレイク',el:'water',biome:'tundra',size:2.0,plan:'amphi',gait:'waddle',swim:true,tier:3,aggro:0,w:1.2,hp:160,atk:15,def:14,spd:3.4,
+  head:{s:'blunt',l:0.5,w:0.46,h:0.42},horn:{s:'none',l:0},neckN:1,neckL:0.3,neckRise:0.3,bodyN:3,bodyL:0.5,bodyR:0.55,bodyH:0.85,tailN:3,tailL:0.35,tip:'fluke',
+  legs:{n:0},wings:{t:'fin',span:0.55,flight:false},spikes:{s:'none'},pat:'spots',extras:['whiskers'],col:{b:0xc8ccd4,u:0xf0f2f6,a:0x6a7280,h:0xffffff,e:0x101010,w:0xa8b0bc,g:0xd0f0ff},
+  breath:{n:'氷のしぶき',k:'spray'},egg:{c1:0xd8dce4,c2:0x6a7280,pat:'spots',sz:0.5,el:1.1,deco:'pearl'},
+  desc:'ぽってりした体にひげを生やした、あざらしの竜。凍った池の上をおなかで滑って移動する。見た目はのんびりでも泳ぎは速い。'},
+ {id:'penguindrake',name:'ペンギンドレイク',el:'water',biome:'tundra',size:1.2,plan:'raptor',gait:'waddle',tier:2,aggro:1,w:1.8,hp:90,atk:13,def:10,spd:4,
+  head:{s:'beak',l:0.45,w:0.36,h:0.36},horn:{s:'tufts',l:0.28},neckN:1,neckL:0.2,neckRise:0.8,bodyN:2,bodyL:0.42,bodyR:0.5,bodyH:1.25,tailN:2,tailL:0.25,tip:'none',
+  legs:{n:2,l:0.35,th:0.12},wings:{t:'fin',span:0.6,flight:false},spikes:{s:'none'},pat:'stripe',col:{b:0x1a1e2a,u:0xf8f8f8,a:0xf8b020,h:0xf8c030,e:0x101010,w:0x1a1e2a,g:0xfff0a0},
+  breath:{n:'つららスライディング',k:'chomp'},egg:{c1:0xf0f0f0,c2:0x1a1e2a,pat:'band',sz:0.38,el:1.2,deco:'fluff'},
+  desc:'背すじをぴんと伸ばして歩く、ペンギンのような竜。黄色い飾り羽がじまんで、群れで氷原をよちよち行進する。'},
+);
+// ================= カモフラージュして動かない竜（擬態竜） =================
+SPECIES_LIST.push(
+ {id:'rockmimic',name:'イワモドキ',el:'earth',biome:'meadow',camo:'岩',size:1.6,plan:'turtle',gait:'waddle',tier:2,aggro:2,w:0.9,hp:130,atk:15,def:22,spd:2,
+  head:{s:'blunt',l:0.5,w:0.42,h:0.36},horn:{s:'nub',l:0.3},neckN:1,neckL:0.35,neckRise:0.2,bodyN:1,bodyL:1.3,bodyR:0.74,bodyH:0.78,tailN:2,tailL:0.25,tip:'club',
+  legs:{n:4,l:0.4,th:0.2,splay:1.4},spikes:{s:'rock',z:0.4},pat:'plain',extras:['shell','cracks'],col:{b:0x8a8a86,u:0xb0aea4,a:0x6a8a4a,h:0x9a9890,e:0xffd040,w:0x8a8a86,g:0xffe060,s1:0x8a8a86,s2:0x7a7a74},
+  breath:{n:'岩くだき',k:'chomp'},egg:{c1:0x8a8a86,c2:0x6a8a4a,pat:'crackle',sz:0.5,el:1.0,deco:'rock'},
+  desc:'苔むした岩にそっくりな竜。何日でもじっと動かず、うっかり腰かけた者にがぶりとかみつく。'},
+ {id:'stumpdrake',name:'キリカブドレイク',el:'grass',biome:'forest',camo:'切り株',size:2.2,bodyStyle:'bark',gait:'waddle',tier:3,aggro:2,w:0.7,hp:190,atk:20,def:20,spd:2,
+  head:{s:'blunt',l:0.5,w:0.4,h:0.4},horn:{s:'antler',l:0.9},neckN:1,neckL:0.3,neckRise:0.6,bodyN:2,bodyL:0.5,bodyR:0.62,bodyH:1.2,tailN:3,tailL:0.3,tip:'leaf',
+  legs:{n:4,l:0.45,th:0.24,splay:1.3},spikes:{s:'moss',z:0.25},pat:'plain',extras:['leafCanopy','cracks'],col:{b:0x6a4a30,u:0x8a6a48,a:0x5aa84a,h:0x5a3a24,e:0xc8ff60,w:0x6a4a30,g:0xb0ff60},
+  breath:{n:'根っこしばり',k:'spray'},egg:{c1:0x7a5a3a,c2:0x5aa84a,pat:'bands',sz:0.55,el:1.2,deco:'leafy'},
+  desc:'枝分かれした角に葉を茂らせ、古い切り株になりすます竜。根元で休んだ獲物を、ねじれた腕でつかまえる。'},
+ {id:'shroommimic',name:'キノコモドキ',el:'grass',biome:'mushroom',camo:'大キノコ',size:2.0,gait:'waddle',tier:3,aggro:2,w:0.8,hp:170,atk:20,def:16,spd:2,
+  head:{s:'maw',l:0.5,w:0.5,h:0.42},horn:{s:'none',l:0},neckN:1,neckL:0.2,neckRise:0.3,bodyN:1,bodyL:0.6,bodyR:0.55,bodyH:1.3,tailN:2,tailL:0.25,tip:'nub',
+  legs:{n:4,l:0.35,th:0.2},spikes:{s:'none'},pat:'plain',extras:['mushCap'],col:{b:0xf0e8d8,u:0xfff8ec,a:0xd83a6a,h:0xf0e0c8,e:0x80ff80,w:0xf0e8d8,g:0xfff0f8},
+  breath:{n:'しびれ胞子',k:'nova'},egg:{c1:0xf0e8d8,c2:0xd83a6a,pat:'spots',sz:0.45,el:1.15,deco:'moss'},
+  desc:'赤い傘に白い水玉の、おいしそうな大キノコ……に見える竜。つまみ食いしようとした者を、傘の下の大口で丸のみにする。'},
+ {id:'crystalmimic',name:'ショウセキモドキ',el:'thunder',biome:'crystal',camo:'水晶のかたまり',size:2.4,plan:'turtle',gait:'waddle',tier:4,aggro:2,w:0.7,hp:260,atk:26,def:30,spd:2,
+  head:{s:'blunt',l:0.5,w:0.42,h:0.38},horn:{s:'single',l:0.6},neckN:1,neckL:0.35,neckRise:0.2,bodyN:1,bodyL:1.3,bodyR:0.72,bodyH:0.8,tailN:3,tailL:0.3,tip:'spike',
+  legs:{n:4,l:0.42,th:0.22,splay:1.4},spikes:{s:'crystal',z:0.5},pat:'plain',extras:['shell','geode'],col:{b:0x8aa0c8,u:0xc8d8f0,a:0xa8e8ff,h:0xe0f4ff,e:0xff60c0,w:0x8aa0c8,g:0xc0f4ff,s1:0x8aa0c8,s2:0xa8c0e8},
+  breath:{n:'水晶の光線',k:'beam'},egg:{c1:0xa8c0e8,c2:0xa8e8ff,pat:'crackle',sz:0.6,el:1.1,deco:'gem'},
+  desc:'背中いっぱいに水晶を生やし、渓谷の水晶だまりにまぎれる竜。水晶を掘りに来た者を、光線でおどかす。'},
+ {id:'snowmound',name:'ユキダマリ',el:'water',biome:'tundra',camo:'雪の吹きだまり',size:2.6,gait:'waddle',tier:3,aggro:2,w:0.8,hp:210,atk:22,def:18,spd:2,
+  head:{s:'blunt',l:0.5,w:0.5,h:0.44},horn:{s:'curl',l:0.5},neckN:1,neckL:0.3,neckRise:0.2,bodyN:2,bodyL:0.55,bodyR:0.78,bodyH:0.85,tailN:2,tailL:0.3,tip:'fluff',
+  legs:{n:4,l:0.4,th:0.26},spikes:{s:'fur',z:0.2},pat:'plain',extras:['snowCloak'],col:{b:0xeef2f8,u:0xffffff,a:0xc8d8e8,h:0xd8e4f0,e:0x3a8ad0,w:0xeef2f8,g:0xc0e8ff},
+  breath:{n:'雪なだれ',k:'cone'},egg:{c1:0xf4f8fc,c2:0xc8d8e8,pat:'spots',sz:0.55,el:1.1,deco:'fluff'},
+  desc:'雪の吹きだまりそっくりに丸まって眠る竜。上を歩くと雪の中から飛び出して、なだれのような息を吐く。'},
+ {id:'coralmimic',name:'サンゴモドキ',el:'water',biome:'beach',camo:'サンゴ礁',size:1.8,plan:'turtle',gait:'scuttle',tier:2,aggro:2,w:0.9,hp:140,atk:17,def:18,spd:2,
+  head:{s:'blunt',l:0.45,w:0.42,h:0.34},horn:{s:'coral',l:0.7},neckN:1,neckL:0.3,neckRise:0.2,bodyN:1,bodyL:1.2,bodyR:0.68,bodyH:0.75,tailN:2,tailL:0.25,tip:'fan',
+  legs:{n:6,l:0.4,th:0.1,splay:1.6},spikes:{s:'garden',z:0.35},pat:'spots',extras:['shell'],col:{b:0xf09a8a,u:0xffe0d0,a:0xff6a9a,h:0xffb060,e:0x101010,w:0xf09a8a,g:0xa0fff0,s1:0xf0a090,s2:0xff8aa8},
+  breath:{n:'しおふき',k:'spray'},egg:{c1:0xf0a090,c2:0xff6a9a,pat:'spots',sz:0.45,el:1.1,deco:'pearl'},
+  desc:'色とりどりの珊瑚を背中に育てる竜。浜辺の珊瑚礁にまぎれて動かず、近づいた小魚や旅人をはさみで捕まえる。'},
+);
+// ================= 水中を泳ぐ竜（小型〜大型） =================
+SPECIES_LIST.push(
+ {id:'bettadrake',name:'ヒレナガドレイク',el:'water',biome:'lake',size:0.85,plan:'sea',gait:'swim',swim:true,deepOnly:true,depth:0.9,bodyStyle:'fish',tier:2,aggro:0,w:1.6,hp:70,atk:9,def:6,spd:5.5,
+  head:{s:'fish',l:0.48,w:0.34,h:0.4},horn:{s:'fins',l:0.45},neckN:0,neckL:0,bodyN:3,bodyL:0.5,bodyR:0.32,bodyH:1.3,tailN:3,tailL:0.36,tailR:0.75,tip:'fan',legs:{n:0},
+  wings:{t:'fin',span:1.5,seg:1,flight:false},spikes:{s:'sail',z:0.45},pat:'plain',extras:['finCrest'],col:{b:0x5a3ab8,u:0x9a80e8,a:0xe04a8a,h:0xff8ac8,e:0xff6ab0,w:0xd04a90,g:0xff9ad8},
+  breath:{n:'ひらひら泡',k:'spray'},egg:{c1:0x7a5ac8,c2:0xe04a8a,pat:'swirl',sz:0.32,el:1.2,deco:'jelly'},
+  desc:'ドレスのような長いヒレをたなびかせて泳ぐ、小さな熱帯魚の竜。気が立つとヒレを大きく広げて見せびらかす。'},
+ {id:'koidrake',name:'コイドラゴン',el:'water',biome:'lake',size:1.15,plan:'sea',gait:'swim',swim:true,deepOnly:true,depth:1.0,bodyStyle:'fish',tier:2,aggro:0,w:1.6,hp:90,atk:11,def:9,spd:5,
+  head:{s:'fish',l:0.5,w:0.38,h:0.4},horn:{s:'none',l:0},neckN:0,neckL:0,bodyN:3,bodyL:0.62,bodyR:0.36,bodyH:1.15,tailN:4,tailL:0.4,tailR:0.7,tip:'fan',legs:{n:0},
+  wings:{t:'fin',span:0.55,seg:0,flight:false},spikes:{s:'sail',z:0.16},pat:'spots',extras:['whiskers'],col:{b:0xfaf6ee,u:0xffffff,a:0xe8501e,h:0xffb040,e:0xf0c040,w:0xf8f4ec,g:0xffd060},
+  breath:{n:'滝のぼり',k:'orb'},egg:{c1:0xfaf6ee,c2:0xe8501e,pat:'spots',sz:0.38,el:1.2,deco:'pearl'},
+  desc:'紅白もようの鯉の竜。なめらかな流線形の体で水を切り、長いひげをゆらして優雅に泳ぐ。滝を登りきった鯉が竜になったと言われる。'},
+ {id:'volteel',name:'ボルトイール',el:'thunder',biome:'lake',size:2.2,plan:'sea',gait:'swim',swim:true,deepOnly:true,depth:1.6,mat:'pulse',tier:3,aggro:2,w:0.9,hp:160,atk:22,def:9,spd:6,when:'night',
+  head:{s:'serpent',l:0.6,w:0.34,h:0.28},horn:{s:'none',l:0},neckN:0,neckL:0,bodyN:18,bodyL:0.45,bodyR:0.26,bodyH:1.0,tailN:0,tip:'fin',legs:{n:0},
+  wings:{t:'fin',span:0.5,seg:1,flight:false},spikes:{s:'sail',z:0.15},pat:'stripe',col:{b:0x1e2a3a,u:0x3a4a5a,a:0x60f0ff,h:0xc0ffff,e:0xfff060,w:0x2a3a4a,g:0x80ffff},
+  breath:{n:'放電',k:'bolt',chain:true},egg:{c1:0x1e2a3a,c2:0x60f0ff,pat:'stripes',sz:0.45,el:1.4,deco:'triple'},
+  desc:'暗い湖の底をくねくね泳ぐ、うなぎの竜。夜になると体のすじが青白く光り、近づくものに電撃を浴びせる。'},
+ {id:'narwhaldrake',name:'ナーワルドラゴン',el:'water',biome:'ocean',size:2.8,plan:'sea',gait:'swim',swim:true,deepOnly:true,depth:1.2,bodyStyle:'whale',tier:3,aggro:1,w:1.2,hp:220,atk:22,def:14,spd:6,
+  head:{s:'blunt',l:0.55,w:0.48,h:0.42},horn:{s:'single',l:1.8},neckN:0,neckL:0,bodyN:3,bodyL:0.6,bodyR:0.55,bodyH:0.85,tailN:4,tailL:0.4,tip:'fluke',legs:{n:0},
+  wings:{t:'flipper',span:0.55,seg:0},spikes:{s:'none'},pat:'spots',col:{b:0x8a96a4,u:0xe8ecf0,a:0x4a5464,h:0xf4f0e0,e:0x101010,w:0x8a96a4,g:0xd0f0ff},
+  breath:{n:'一角の突進',k:'chomp'},egg:{c1:0x9aa4b0,c2:0x4a5464,pat:'spots',sz:0.6,el:1.1,deco:'pearl'},
+  desc:'頭からまっすぐ長いらせんの角を伸ばした、いっかくの竜。群れで外洋を回遊し、角で氷も割ってしまう。'},
+ {id:'sharkdrake',name:'シャークドレイク',el:'water',biome:'ocean',size:3.6,plan:'sea',gait:'swim',swim:true,deepOnly:true,depth:1.0,bodyStyle:'fish',finK:0.9,tier:4,aggro:2,w:0.9,hp:300,atk:32,def:16,spd:7.5,
+  head:{s:'shark',l:0.85,w:0.42,h:0.4},horn:{s:'none',l:0},neckN:0,neckL:0,bodyN:3,bodyL:0.78,bodyR:0.42,bodyH:1.1,tailN:4,tailL:0.5,tailR:0.62,tip:'crescent',legs:{n:0},
+  wings:{t:'flipper',span:0.62,seg:0},spikes:{s:'none'},pat:'plain',extras:['dorsalFin'],col:{b:0x4a5a6e,u:0xf2f4f6,a:0x2e3a48,h:0xffffff,e:0x0a0c10,w:0x4a5a6e,g:0xd0e8ff},
+  breath:{n:'かみくだき',k:'chomp'},egg:{c1:0x4a5a6e,c2:0xf2f4f6,pat:'band',sz:0.6,el:1.3,deco:'thorns'},
+  desc:'とがった鼻先、えらの切れ込み、三日月形の尾びれを持つサメの竜。背びれだけを水面に出して近づき、何列もの牙で一気にかみつく。'},
+ {id:'krakendrake',name:'クラーケンドラゴン',el:'water',biome:'ocean',size:4.4,plan:'sea',gait:'swim',swim:true,deepOnly:true,depth:2.0,squidTail:true,tier:5,aggro:2,w:0.35,hp:500,atk:34,def:24,spd:4.2,
+  head:{s:'croc',l:0.95,w:0.62,h:0.6},horn:{s:'crown',l:0.42},neckN:1,neckL:0.3,bodyN:3,bodyL:0.5,bodyR:0.46,bodyH:0.9,tailN:0,tip:'none',bodyStyle:'fish',wings:{t:'fin',span:0.5,seg:0,flight:false},legs:{n:0},
+  spikes:{s:'none'},pat:'spots',extras:['tusks'],col:{b:0x7a1e2e,u:0xe8a090,a:0xc8404a,h:0xffe0c0,e:0xffd020,w:0x7a1e2e,g:0xffc040},
+  breath:{n:'墨の大渦',k:'radial'},egg:{c1:0x7a1e2e,c2:0xc8404a,pat:'spots',sz:0.8,el:1.0,deco:'jelly'},
+  desc:'本来イカの頭があるはずの場所に、牙だらけの恐ろしい顔がついた巨竜。8本の触腕をしっぽのようにヒラヒラなびかせて外洋を進み、船も竜も深海へ引きずり込む。'},
+ {id:'leviathan',name:'リヴァイアサン',el:'water',biome:'ocean',size:5.6,plan:'sea',gait:'swim',swim:true,deepOnly:true,depth:1.8,tier:5,aggro:2,w:0.25,hp:620,atk:38,def:28,spd:6,
+  head:{s:'serpent',l:0.85,w:0.44,h:0.36},horn:{s:'crown',l:1.0},neckN:0,neckL:0,bodyN:22,bodyL:0.52,bodyR:0.36,bodyH:0.95,tailN:0,tip:'fan',legs:{n:0},
+  wings:{t:'fin',span:1.2,seg:2,flight:false},spikes:{s:'sail',z:0.35},pat:'scales',extras:['finCrest','gills','runes'],col:{b:0x14305a,u:0x6ab8d0,a:0x30e0d0,h:0xd0fff8,e:0xffe060,w:0x2a6a90,g:0x60fff0},
+  breath:{n:'大海嘯',k:'beam'},egg:{c1:0x14305a,c2:0x30e0d0,pat:'scales',sz:0.9,el:1.3,deco:'rune'},
+  desc:'島をひと巻きできるほど長い、外洋の海竜の王。光るうろこのすじを波間にきらめかせ、果てしない海の果てを泳ぎ続けている。'},
+);
 
 const SP={};
 SPECIES_LIST.forEach((s,i)=>{
@@ -779,6 +1013,13 @@ SPECIES_LIST.forEach((s,i)=>{
   SP[o.id]=o;
 });
 const BIOME_SP={};BIOME_KEYS.forEach(b=>BIOME_SP[b]=SPECIES_LIST.map(s=>SP[s.id]).filter(s=>s.biome===b));
+// まだ専用のドラゴンがいないバイオームは、近い雰囲気のバイオームの竜が出る
+const BIOME_GUESTS={flowerhills:['bloomfairy','luminpixie','blossombehemoth'],autumn:['owldrake','treantdragon','mossdragon'],sakura:['bloomfairy','kirin','chromadragon'],
+  beach:['shelldragon','pufferdrake','mantadragon'],mushroom:['mistmoth','toaddrake','fungaldrake'],canyon:['rockhorn','dustrunner','scorpiwyvern'],
+  crystal:['prismdragon','crystalwyrm','glacierbehemoth'],tundra:['yukimofu','mammothdragon','icewing']};
+// 新しいバイオームには、雰囲気の合う既存の竜も少し出る
+for(const b in BIOME_GUESTS)BIOME_SP[b]=BIOME_SP[b].concat(BIOME_GUESTS[b].map(id=>SP[id]).filter(s=>s&&!s.swim));
+BIOME_KEYS.forEach(b=>{if(!BIOME_SP[b].length&&BIOMES[b].alt)BIOME_SP[b]=BIOME_SP[BIOMES[b].alt];});
 
 // ================= アイテム・クラフト =================
 const ITEMS={
@@ -913,6 +1154,11 @@ IC.sunset=c=>{for(let i=0;i<7;i++){const a=-Math.PI/2+(i-3)*0.42;irot(c,32,46,a,
 IC.eye=c=>{const d='M3 32C14 15 50 15 61 32 50 49 14 49 3 32Z';ip(c,d,ig(c,18,46,'parch'),{h:false});ip(c,icir(32,32,11),ir(c,30,29,12,['#c8e0f0','#4a7aa8','#1a2a50']),{h:false,w:1.6});
   ip(c,icir(32,32,4.4),INK,{h:false,w:0});iglint(c,28,28,2.6);ip(c,d,null);for(let i=0;i<7;i++){const x=12+i*6.6;il(c,`M${x} ${22-(i>0&&i<6?3:0)+Math.abs(i-3)*1.4}l${(i-3)*0.8} -5`,INK,1.4);}};
 // ---- 火（鉄の火鉢） ----
+IC.rage=c=>{c.save();c.shadowColor='rgba(255,40,30,.9)';c.shadowBlur=9;
+  ip(c,'M32 4c3 8 10 10 12 18 3-4 3-8 2-12 8 7 12 15 10 26-2 12-12 20-24 20S10 50 8 38C6 27 10 19 18 12c-1 4-1 8 2 12 2-8 9-10 12-18Z',ig(c,6,58,['#ffc070','#e02818','#4a0606']),{h:false});c.restore();
+  ip(c,'M13 38c7-9 31-9 38 0-7 9-31 9-38 0Z',ig(c,30,46,['#fff6b0','#ffa018','#c04008']),{});
+  ip(c,'M32 30c2.6 3 2.6 13 0 16-2.6-3-2.6-13 0-16Z','#140202',{h:false});
+  ip(c,'M12 31l7 3M52 31l-7 3','rgba(0,0,0,0)',{});c.strokeStyle='#2a0404';c.lineWidth=2.4;c.stroke(new Path2D('M13 30l9 4M51 30l-9 4'));};
 IC.flame=c=>{c.save();c.shadowColor='rgba(255,140,40,.8)';c.shadowBlur=8;ip(c,'M32 3c4 10 15 15 15 29 0 8-7 12-15 12s-15-4-15-12c0-7 4-11 8-15 0 5 2 8 4 9-1-9 0-16 3-23Z',ig(c,3,44,['#fff0a0','#f8a030','#c03018']),{h:false});c.restore();
   ip(c,'M32 20c3 6 7 9 7 15a7 7 0 0 1-14 0c0-5 4-9 7-15Z',ig(c,20,42,['#fffbe0','#ffd860']),{h:false,w:0});
   ip(c,'M10 40h44c-2 10-10 14-22 14S12 50 10 40Z',ig(c,40,54,'iron'),{cy:48});il(c,'M18 52l-6 10M46 52l6 10M32 54v8',INK,2.6);};
@@ -1018,13 +1264,16 @@ IC.seal=c=>{ip(c,'M32 6c4 2 6 0 10 2s4 6 8 8 2 6 4 10-2 6 0 10-4 6-4 10-6 4-8 8-
   ip(c,icir(32,34,13),null,{w:1.2});ip(c,'M32 25l2.6 6 6.4.4-5 4 1.6 6.4-5.6-3.6-5.6 3.6 1.6-6.4-5-4 6.4-.4Z','rgba(255,200,180,.55)',{h:false,w:0.8});};
 IC.tent=c=>{ip(c,'M32 10L58 56H6Z',ig(c,10,56,'parch'),{cy:40});c.save();c.clip(new Path2D('M32 10L58 56H6Z'));c.fillStyle='rgba(154,44,28,.85)';for(const x of[-14,6,26])c.fill(new Path2D(`M32 10L${x+20} 60H${x+10}Z`));c.restore();
   ip(c,'M32 10L58 56H6Z',null);ip(c,'M32 34L40 56H24Z','#2a1408',{h:false,w:1.4});il(c,'M32 10V2',INK,2);ip(c,'M32 2l10 3-10 4Z',ig(c,2,9,'blue'),{h:false,w:1.2});};
+IC.shroom=c=>{c.save();c.shadowColor='rgba(120,255,220,.9)';c.shadowBlur=8;ip(c,'M6 30C6 14 20 6 32 6s26 8 26 24c-8 4-18 5-26 5S14 34 6 30Z',ig(c,6,34,['#d8fff4','#5ad0c0','#1a6a70']),{cy:22});c.restore();
+  for(const [x,y,r] of[[20,20,3],[34,14,2.6],[46,22,3]])ip(c,icir(x,y,r),'#f0fffc',{h:false,w:1});ip(c,'M26 32h12l2 26H24Z',ig(c,32,58,'parch'),{cy:44});};
+IC.shroomOff=c=>{ip(c,'M6 30C6 14 20 6 32 6s26 8 26 24c-8 4-18 5-26 5S14 34 6 30Z',ig(c,6,34,['#6a7080','#3a4050','#1a2030']),{cy:22});ip(c,'M26 32h12l2 26H24Z',ig(c,32,58,['#8a8a90','#5a5a60']),{cy:44});};
 // 絵文字 → アイコン（意味で選ぶ）
 const EMO2IC={'💧':'slime','🌊':'wave','✋':'hand','✊':'fist','💪':'fist','🐣':'hatch','🫙':'pouch','⚔':'swords','🗡':'dagger','🐉':'dragon','🐲':'dragon','🐎':'dragon','💎':'crystal','💠':'runestone','🥚':'egg',
- '☀':'sun','🌙':'moon','🌕':'fullmoon','🌅':'sunset','🌄':'sunset','👁':'eye','🔥':'flame','▲':'up','▼':'down','⬆':'up','⬇':'down','⏫':'up2','🔝':'top',
+ '☀':'sun','🌙':'moon','🌕':'fullmoon','🌅':'sunset','🌄':'sunset','👁':'eye','🔥':'flame','💢':'rage','▲':'up','▼':'down','⬆':'up','⬇':'down','⏫':'up2','🔝':'top',
  '❤':'heart','💗':'heartP','💖':'heartS','💔':'heartB','💚':'growth','🛡':'shield','🌀':'cauldron','🕳':'cave','🍖':'meat','🍗':'roast','🍽':'roast','🥩':'steak','🍱':'bread',
  '📖':'book','🐚':'scale','🧪':'potion','🔴':'vialR','🔵':'vialB','🟢':'vialG','✨':'sparkle','⚠':'warn','🪵':'wood','🪨':'stone','⛰':'mountain','⛓':'ore','🌿':'herb','🫐':'berry',
  '☁':'cloud','🌬':'windface','💨':'boot','🌪':'tornado','⚡':'bolt','⤒':'wings','🛠':'anvil','⚙':'astrolabe','🔨':'hammer','🪓':'axe','💍':'ring','🎵':'lute','🔊':'horn','💾':'quill','🗑':'tornscroll',
- '🚫':'no','⚗':'alembic','🎉':'trumpet','⏳':'hourglass','👑':'crown','⛺':'tent','❔':'unknown','💤':'moon',
+ '🚫':'no','⚗':'alembic','🎉':'trumpet','⏳':'hourglass','👑':'crown','⛺':'tent','❔':'unknown','💤':'moon','🍄':'shroom','🌑':'shroomOff',
  '⛑':'seal','🪖':'seal','🦺':'seal','👢':'boot','🥾':'boot','👟':'boot','📿':'seal','🎖':'seal','🏏':'seal'};
 IC.medal=IC.seal;
 const ICON_CV={},ICON_CLS={};let icSheet=null;
@@ -1237,6 +1486,7 @@ function addTip(gb,sp,st,R,S){const C=sp.col,t=sp.tip;let k=SK.spike[st]*S;const
       gb.along(P_cone(4),add3([0,0,0],_n3(d),0.45*k),d,0.35*k,[0.06*k,0.02*k],0xffe060,true);}break;
     case 'stinger':{const p=[[0,0,0],[0,0.25*k,-0.15*k],[0,0.45*k,-0.05*k],[0,0.55*k,0.15*k]];gb.tube(p,0.07*k,0.05*k,5,C.a);
       gb.along(P_cone(4),p[3],[0,-0.3,1],0.28*k,0.06*k,C.h);gb.add(P_sphere(5,3),{s:0.07*k,t:p[3],c:C.g,glow:true});break;}
+    case 'crescent':gb.add(P_sphere(6,4),{s:[0.06*k,0.12*k,0.14*k],t:[0,0,-0.06*k],c:C.b});gb.along(P_cone(4),[0,0.02*k,-0.08*k],[0,1,-0.75],0.95*k,[0.03*k,0.2*k],C.b);gb.along(P_cone(4),[0,-0.02*k,-0.08*k],[0,-0.85,-0.65],0.7*k,[0.03*k,0.16*k],(l)=>C.u);break;
     case 'fluke':if(sp.size>4)k*=1.25;gb.add(P_sphere(6,4),{s:[0.12*k,0.07*k,0.2*k],t:[0,0,-0.08*k],c:C.b});
       for(const sd of[-1,1]){gb.along(P_sphere(8,4),[sd*0.04*k,0,-0.12*k],[sd*0.85,0,-0.5],0.78*k,[0.2*k,0.035*k],(l,w)=>l[1]<0?C.u:C.b);
         gb.along(P_cone(4),add3([sd*0.04*k,0,-0.12*k],_n3([sd*0.85,0,-0.5]),0.6*k),[sd*0.9,0,-0.2],0.22*k,[0.07*k,0.025*k],C.b);}break;
@@ -1255,6 +1505,8 @@ function addTip(gb,sp,st,R,S){const C=sp.col,t=sp.tip;let k=SK.spike[st]*S;const
 
 // ---- 頭部 ----
 const HEADS={
+  fish:{cr:[0.52,0.5,0.5],ct:[0,0.02,0.4],sf:0.75,sl:0.25,sr:[0.32,0.28],tp:0.7,eye:[0.42,0.12,0.62],er:0.1,jh:[0,-0.16,0.5],jl:0.4,jr:[0.28,0.1],jt:0.8,hb:[0.25,0.4,0.3],teeth:0},
+  shark:{eye:[0.4,0.14,0.62],er:0.07,jh:[0,-0.2,0.3],jl:0.62,jr:[0.36,0.14],jt:0.8,hb:[0.2,0.32,0.2],teeth:2,shark:true},
   whale:{cr:[0.62,0.5,0.62],ct:[0,0.04,0.42],eye:[0.5,0,0.3],er:0.04,jh:[0,-0.2,0.08],jl:0.98,jr:[0.56,0.2],jt:0.86,hb:[0.3,0.45,0.3],teeth:0,whale:true},
   long:{cr:[0.5,0.5,0.34],ct:[0,0.06,0.3],sf:0.4,sl:0.62,sr:[0.34,0.3],tp:0.62,eye:[0.4,0.2,0.48],er:0.15,jh:[0,-0.2,0.25],jl:0.68,jr:[0.3,0.15],jt:0.55,hb:[0.28,0.42,0.18],teeth:1},
   blunt:{cr:[0.6,0.6,0.42],ct:[0,0.08,0.36],sf:0.52,sl:0.36,sr:[0.42,0.34],tp:0.75,eye:[0.44,0.22,0.56],er:0.17,jh:[0,-0.24,0.32],jl:0.5,jr:[0.36,0.16],jt:0.7,hb:[0.3,0.5,0.22],teeth:0},
@@ -1279,6 +1531,10 @@ function buildHead(sp,st,S,gb,gj){
     gb.add(P_sphere(9,5),{s:[0.52*hw,0.3*hh,0.42*hl],t:[0,0.1*hh,0.74*hl],c:skin});
     for(const sd of[-1,1]){gb.add(P_sphere(4,3),{s:[0.05*hw,0.02*hh,0.08*hl],t:[sd*0.07*hw,0.53*hh,0.22*hl],c:shade(C.b,0.6)});
       gb.along(P_cyl(1,1,4),[sd*0.53*hw,-0.13*hh,0.12*hl],[-sd*0.1,0.06,1],0.95*hl,[0.012*hw,0.03*hh],shade(C.b,0.55));}
+  }else if(H.shark){const cs=(l,w)=>l[1]<-0.15?C.u:C.b;
+    gb.add(P_sphere(10,6),{s:[0.5*hw,0.42*hh,0.62*hl],t:[0,0.04*hh,0.35*hl],c:cs});
+    gb.along(P_cone(9),[0,0.04*hh,0.62*hl],[0,-0.04,1],0.62*hl,[0.34*hw,0.28*hh],cs);
+    for(const sd of[-1,1])for(let k=0;k<5;k++)gb.along(P_cyl(1,1,3),[sd*0.47*hw,-0.12*hh,(0.02+k*0.07)*hl],[0,1,0.12],0.36*hh,[0.012*hw,0.03*hl],shade(C.b,0.5));
   }else if(sp.head.s==='maw'){
     gb.along(P_cyl(1,0.9,8),[0,0,-0.05*hl],[0,0,1],hl*0.8,[hw*0.62,hh*0.62],skin);
     gb.add(P_cyl(0.001,1,8),{s:[hw*0.5,0.12*hl,hh*0.5],r:[-Math.PI/2,0,0],t:[0,0,hl*0.72],c:0x2a0a0a});
@@ -1317,10 +1573,13 @@ function buildHead(sp,st,S,gb,gj){
     const ep=[sd*H.eye[0]*hw,H.eye[1]*hh,H.eye[2]*hl];
     const nrm=H.front?_n3([sd*0.25,0.05,1]):H.top?_n3([sd*0.5,0.6,0.4]):_n3([sd*1,0.15,0.55]);
     if(H.skull){gb.add(P_sphere(6,4),{s:er*1.3,t:add3(ep,nrm,er*0.15),c:0x0a0608});gb.add(P_sphere(5,4),{s:er*0.45,t:add3(ep,nrm,er*0.75),c:C.e,glow:true});continue;}
-    gb.add(P_sphere(6,4),{s:er,t:ep,c:anc?0xffffff:C.e,glow:anc});
-    if(anc)gb.add(P_sphere(6,4),{s:er*1.02,t:ep,c:C.e,glow:true});
-    gb.add(P_sphere(5,4),{s:[er*0.55,er*0.62,er*0.55],t:add3(ep,nrm,er*0.62),c:0x0a0a10});
-    if(st<=1)gb.add(P_sphere(4,3),{s:er*0.24,t:add3(add3(ep,nrm,er*0.85),[0,er*0.35,0]),c:0xffffff});
+    // 顔に埋まった細長い目（爬虫類らしい縦長の瞳・眉の骨・下まぶた）
+    const e=er*(baby?0.92:0.8),base=add3(ep,nrm,-e*0.55);
+    gb.along(P_sphere(7,4),base,nrm,e*1.05,[e*1.05,e*(baby?0.8:0.6)],C.e,anc);
+    gb.along(P_sphere(5,3),add3(base,nrm,e*0.82),nrm,e*0.3,[e*(baby?0.3:0.12),e*(baby?0.5:0.48)],0x0a0a10);
+    if(!baby)gb.along(P_sphere(6,3),add3(ep,[0,e*0.6,-e*0.4]),_n3([sd*0.28,0.08,1]),e*2.5,[e*0.78,e*0.42],skin);
+    gb.along(P_sphere(5,3),add3(ep,[0,-e*0.5,-e*0.15]),_n3([sd*0.22,0,1]),e*1.7,[e*0.5,e*0.26],skin);
+    if(st<=1)gb.add(P_sphere(4,3),{s:e*0.16,t:add3(add3(base,nrm,e*1.0),[0,e*0.22,0]),c:0xffffff});
     if(adult&&['long','serpent','croc','skull'].includes(sp.head.s))gb.along(P_cone(4),add3(ep,[0,er*0.85,er*0.2]),[sd*0.35,0.35,-1],er*2.4,er*0.45,C.a);
   }
   // 歯
@@ -1339,6 +1598,11 @@ function buildHead(sp,st,S,gb,gj){
       }
       if(sp.extras.includes('crownHorns'))for(let i=0;i<5;i++){const a=(i-2)*0.42;gb.along(P_cone(4),[Math.sin(a)*hw*0.4,hh*0.35+Math.cos(a)*hh*0.15,hl*0.05],[Math.sin(a)*0.8,0.7,-0.6],L*0.45,rb*0.6,C.a);}
       break;
+    case 'coral':for(const sd of[-1,1]){const p0=[sd*hb[0],hb[1],hb[2]];const br=[[sd*0.2,0.7,-0.2],[sd*0.6,0.5,0.1],[sd*0.1,0.6,0.4],[sd*0.5,0.8,-0.4]];
+        for(let k=0;k<br.length;k++){const p1=add3(p0,br[k],L*0.55),p2=add3(p1,[br[k][0]*0.6,0.5,br[k][2]*0.5],L*0.4);gb.tube([p0,p1,p2],rb*(k?0.6:0.9),rb*0.3,4,k%2?C.h:C.a);gb.add(P_sphere(4,3),{s:rb*0.7,t:p2,c:k%2?C.a:C.g,glow:!!(k%2)});}}break;
+    case 'sakura':for(const sd of[-1,1]){const p0=[sd*hb[0],hb[1],hb[2]];const p1=add3(p0,[sd*0.25,0.6,-0.3],L),p2=add3(p1,[sd*0.25,0.4,-0.2],L),p3=add3(p2,[sd*0.1,0.3,-0.1],L);
+        gb.tube([p0,p1,p2,p3],rb*0.8,rb*0.25,5,0x5a3a30);const q1=add3(p1,[sd*0.05,0.35,0.25],L);gb.tube([p1,q1],rb*0.5,0,4,0x5a3a30);
+        for(const q of[p2,p3,q1,add3(p2,[sd*0.18,0.1,0.15],L)])for(let k=0;k<3;k++)gb.add(P_sphere(5,3),{s:L*0.11,t:add3(q,[Math.sin(k*2.1)*0.08,Math.cos(k*2.1)*0.06,0.05*k],L),c:k===1?0xfff0f6:0xf6b8d0});}break;
     case 'curl':for(const sd of[-1,1]){const pts=[];for(let i=0;i<=8;i++){const u=i/8,a=u*1.7*Math.PI,Rr=L*0.32*(1-0.4*u);
         pts.push([sd*(hb[0]+u*L*0.38),hb[1]+0.1*L*Math.sin(u*3)-Rr*(1-Math.cos(a))*0.9,hb[2]-Rr*Math.sin(a)]);}
         gb.tube(pts,rb*1.5,rb*0.25,6,(l,w)=>hash3(w)>0.5?C.h:shade(C.h,0.85));}break;
@@ -1383,6 +1647,8 @@ function buildHead(sp,st,S,gb,gj){
   if(ex.includes('noseHorn')){gb.along(P_cone(5),[0,hh*0.3,hl*0.7],[0,1,0.35],L*0.8,rb*1.6,hg);gb.along(P_cone(4),[0,hh*0.3,hl*0.5],[0,1,0.1],L*0.35,rb*1.1,hg);}
   if(ex.includes('throat'))gj.add(P_sphere(6,4),{s:[hw*0.4,hh*0.3,hl*0.3],t:[0,-hh*0.15,hl*0.25],c:mixc(C.u,0xffffff,0.2)});
   if(ex.includes('mane')&&sp.horn.s==='antenna')gb.add(P_sphere(6,4),{s:[hw*0.7,hh*0.55,hl*0.3],t:[0,-hh*0.25,-hl*0.02],c:C.u});
+  if(ex.includes('flowerCrown'))for(let i=0;i<7;i++){const a=(i/7)*Math.PI*2;const c0=[Math.cos(a)*hw*0.5,hh*0.55+Math.sin(a*2)*hh*0.04,hl*0.25+Math.sin(a)*hl*0.25];const fc=[0xffb0c8,0xfff0a0,0xc8b8ff,0xffffff][i%4];
+    for(let k=0;k<5;k++){const b=k/5*Math.PI*2;gb.add(P_sphere(4,2),{s:[hw*0.07,hw*0.03,hw*0.07],t:add3(c0,[Math.cos(b)*hw*0.08,0,Math.sin(b)*hw*0.08]),c:fc});}gb.add(P_sphere(4,3),{s:hw*0.045,t:add3(c0,[0,hw*0.02,0]),c:0xffd040});}
   if(ex.includes('eyePatch'))for(const sd of[-1,1])gb.add(P_sphere(6,3),{s:[0.06*hw,0.12*hh,0.2*hl],r:[0.2,0,0],t:[sd*0.56*hw,0.18*hh,0.3*hl],c:C.u});
   if(ex.includes('halo')){const R=hw*1.7,c=[0,hh*0.35,-hl*0.12];for(let i=0;i<18;i++){const a=i/18*TAU;gb.add(P_box(),{s:[R*0.2,R*0.05,R*0.05],r:[0,0,a+Math.PI/2],t:add3(c,[Math.cos(a)*R,Math.sin(a)*R,0]),c:C.g,glow:true});
       if(i%3===0)gb.along(P_cone(3),add3(c,[Math.cos(a)*R*1.05,Math.sin(a)*R*1.05,0]),[Math.cos(a),Math.sin(a),0],R*0.35,R*0.05,C.g,true);}}
@@ -1448,10 +1714,11 @@ function buildWing(sp,st,W,type,gi,go,pair){
   // 昆虫系（花弁・蛾）
   // 輪郭を平らな多角形で作る（前翅は前寄り、後翅は後ろへ）。根元が体に食い込まない
   const hind=pair===1;const s=W*0.78*(hind?0.78:1);
-  const out=type==='petal'?(hind?[[0.06,-0.04],[0.4,-0.14],[0.78,-0.4],[0.72,-0.62],[0.42,-0.6],[0.14,-0.3]]:[[0.06,0.03],[0.38,0.2],[0.82,0.26],[1,0.06],[0.86,-0.14],[0.45,-0.16],[0.12,-0.05]])
+  const out=type==='maple'?(hind?[[0.05,-0.03],[0.3,-0.06],[0.5,-0.3],[0.42,-0.36],[0.62,-0.6],[0.4,-0.56],[0.28,-0.7],[0.18,-0.42],[0.06,-0.2]]:[[0.05,0.03],[0.3,0.12],[0.42,0.4],[0.52,0.18],[0.82,0.32],[0.72,0.08],[1,0.0],[0.7,-0.08],[0.78,-0.26],[0.46,-0.16],[0.12,-0.06]])
+    :type==='petal'?(hind?[[0.06,-0.04],[0.4,-0.14],[0.78,-0.4],[0.72,-0.62],[0.42,-0.6],[0.14,-0.3]]:[[0.06,0.03],[0.38,0.2],[0.82,0.26],[1,0.06],[0.86,-0.14],[0.45,-0.16],[0.12,-0.05]])
     :(hind?[[0.06,-0.04],[0.45,-0.1],[0.82,-0.3],[0.86,-0.55],[0.62,-0.78],[0.3,-0.62],[0.1,-0.24]]:[[0.06,0.04],[0.32,0.26],[0.7,0.38],[1,0.3],[1.02,0.05],[0.78,-0.16],[0.4,-0.18],[0.12,-0.06]]);
   const P2=out.map(([x,z])=>[x*s,0,z*s]);let cx=0,cz=0;for(const p of P2){cx+=p[0];cz+=p[2];}const c=[cx/P2.length,0.004*s,cz/P2.length];
-  const edge=type==='petal'?C.h:shade(mem,0.62);
+  const edge=type==='petal'?C.h:type==='maple'?shade(mem,0.7):shade(mem,0.62);
   for(let i=0;i<P2.length;i++){const a=P2[i],b=P2[(i+1)%P2.length];const ma=[lerp(c[0],a[0],0.72),c[1],lerp(c[2],a[2],0.72)],mb=[lerp(c[0],b[0],0.72),c[1],lerp(c[2],b[2],0.72)];
     gi.tri(c,ma,mb,i%2?mem:mixc(mem,0xffffff,0.12));gi.tri(ma,a,b,edge);gi.tri(ma,b,mb,edge);}
   gi.along(P_cyl(0.4,1,4),[0,0,0],[out[3][0],0,out[3][1]],Math.hypot(out[3][0],out[3][1])*s*0.9,s*0.012,shade(mem,0.5));
@@ -1478,6 +1745,8 @@ function dragonGeo(sp,st){
       segDefs.push({kind:'body',r,hk:sp.bodyH,len:sp.bodyL*S*(st===0?0.9:1),bend:0.32,idx:i});}
     const r0=sp.bodyR*S*0.72*sp.tailR;for(let j=0;j<sp.tailN;j++){const t=sp.tailN>1?j/(sp.tailN-1):1;
       segDefs.push({kind:'tail',r:r0*lerp(1,0.22,Math.pow(t,0.85)),hk:sp.bodyH*0.95,len:sp.tailL*S*SK.tail[st]*lerp(1,0.8,t),bend:0.5,idx:j});}}
+  if(sp.bodyStyle==='fish'&&!sp.serp){const N=segDefs.length,Rm=sp.bodyR*S*SK.body[st];segDefs.forEach((d,i)=>{const t=(i+0.5)/N;
+    d.r=Rm*(t<0.28?lerp(0.86,1,t/0.28):lerp(1,0.16,Math.pow((t-0.28)/0.72,1.25)));d.hk=sp.bodyH*(d.kind==='tail'?1.05:1);});}
   const R0=segDefs[0].r;
   segDefs.forEach((d,i)=>{const gb=new GB();const last=i===segDefs.length-1;
     const blocky=sp.extras.includes('blocky');
@@ -1488,6 +1757,12 @@ function dragonGeo(sp,st){
         if(d.kind==='body'||i%3===0)gb.add(P_sphere(5,4),{s:d.r*0.3,t:[0,-d.r*0.32,d.len*0.5],c:C.g,glow:true});}}
     else if(style==='crystal'){gb.add(P_bicone(6),{s:[d.r*1.05,d.len*1.3,d.r*d.hk],r:[Math.PI/2,0,0],t:[0,0,d.len*0.5],c:(l,w)=>hash3(w)>0.55?C.b:(l[1]>0?C.h:C.a)});
       gb.add(P_sphere(5,4),{s:[d.r*0.35,d.r*0.35,d.len*0.4],t:[0,0,d.len*0.5],c:C.g,glow:true});}
+    else if(style==='fish'){// 関節に円い玉＋先細りの筒：くねっても継ぎ目が出っ張らない
+      const cf=bodyColFn(sp,d.kind,d.idx),rb=d.r,rf=i>0?segDefs[i-1].r:d.r,Rx=Math.max(rb,rf),W=0.74,Hk=d.hk;
+      gb.add(P_sphere(10,6),{s:[rb*W,rb*Hk,rb*W],t:[0,0,0],c:cf});
+      gb.along(P_cyl(rf/Rx,rb/Rx,10),[0,0,0],[0,0,1],d.len,[Rx*W,Rx*Hk],cf);
+      if(i===0)gb.add(P_sphere(10,6),{s:[rf*W,rf*Hk,rf*W*1.1],t:[0,0,d.len],c:cf});
+      if(last)gb.add(P_sphere(8,5),{s:[rb*W*0.9,rb*Hk*0.9,rb*1.6],t:[0,0,-rb*0.2],c:cf});}
     else if(style==='whale'){gb.add(P_sphere(10,6),{s:[d.r*1.03,d.r*d.hk,d.len*(d.kind==='tail'?1.0:1.05)],t:[0,0,d.len*0.5],c:bodyColFn(sp,d.kind,d.idx)});
       if(d.kind==='body')gb.along(P_cyl(1,1,10),[0,0,-d.len*0.05],[0,0,1],d.len*1.1,[d.r*0.97,d.r*d.hk*0.96],bodyColFn(sp,d.kind,d.idx));}
     else if(style==='bark')gb.add(P_sphere(8,6),{s:[d.r,d.r*d.hk,d.len*0.68],t:[0,0,d.len*0.5],c:(l,w)=>l[1]<-0.45?C.u:(hash3(w)>0.86?C.a:(Math.floor(Math.atan2(l[2],l[0])*2.5)%2?C.b:shade(C.b,0.78)))});
@@ -1498,6 +1773,18 @@ function dragonGeo(sp,st){
         gb.add(P_sphere(6,4),{s:er2,t:ep,c:0xfffaf0});gb.add(P_sphere(5,3),{s:er2*0.55,t:add3(ep,[sd*er2*0.6,0,0]),c:C.e,glow:true});gb.add(P_sphere(4,3),{s:er2*0.25,t:add3(ep,[sd*er2*1.05,0,0]),c:0x0a0a10});}}
     if(ex2.includes('tentacles')&&d.kind==='body'){const T=d.r*1.1;for(let k=0;k<3;k++){const x=(k-1)*d.r*0.5,z0=d.len*(0.3+(k%2)*0.35);const p0=[x,-d.r*d.hk*0.7,z0];
         const pts=[p0,add3(p0,[x*0.2,-1,0.1],T),add3(p0,[x*0.5,-1.9,-0.35],T),add3(p0,[x*0.3,-2.6,-0.2],T),add3(p0,[x*0.1,-3.1,0.15],T)];gb.tube(pts,d.r*0.12,d.r*0.03,4,C.a);gb.add(P_sphere(4,3),{s:d.r*0.08,t:pts[4],c:C.g,glow:true});}}
+    if(ex2.includes('spiralShell')&&d.kind==='body'&&d.idx===Math.min(1,sp.bodyN-1)){const pts=[];const c0=[0,d.r*d.hk*0.75,d.len*0.4];for(let k=0;k<=26;k++){const u=k/26,a=u*Math.PI*3.4,rr=d.r*1.25*(1-u*0.85);pts.push([Math.cos(a)*rr*0.85,c0[1]+u*d.r*1.6+Math.sin(a)*rr*0.35,c0[2]-u*d.len*0.25+Math.sin(a)*rr*0.6]);}
+      gb.tube(pts,d.r*0.85,d.r*0.12,7,(l,w)=>{const q=Math.sin(w[0]*6+w[1]*5+w[2]*4);return q>0.3?C.a:q>-0.4?C.h:shade(C.a,0.8);});gb.add(P_sphere(5,3),{s:d.r*0.12,t:pts[26],c:C.g,glow:true});}
+    if(ex2.includes('mushCap')&&d.kind==='body'&&d.idx===Math.min(1,sp.bodyN-1)){const cy=d.r*d.hk*1.2;gb.add(P_sphere(10,5),{s:[d.r*1.85,d.r*0.75,d.len*1.05],t:[0,cy,d.len*0.45],c:(l,w)=>l[1]<-0.25?C.u:C.a});
+      gb.add(P_cyl(1,1,12),{s:[d.r*1.6,d.r*0.06,d.len*0.9],t:[0,cy-d.r*0.15,d.len*0.45],c:shade(C.u,0.85)});
+      for(let k=0;k<9;k++){const a=k/9*TAU+0.3,rr=k?0.55:0;gb.add(P_sphere(4,3),{s:[d.r*0.3,d.r*0.1,d.r*0.3],t:[Math.cos(a)*d.r*1.3*rr,cy+d.r*0.68*(1-rr*0.5),d.len*0.45+Math.sin(a)*d.len*0.66*rr],c:C.g,glow:!sp.capPlain});}}
+    if(ex2.includes('hoodooBack')&&d.kind==='body')for(let k=0;k<3;k++)gb.add(P_cyl(0.92,1,7),{s:[d.r*(0.95-k*0.22),d.r*0.28,d.len*(0.48-k*0.1)],t:[0,d.r*d.hk*(0.9+k*0.42),d.len*0.5],c:[C.a,C.h,shade(C.a,0.8)][k]});
+    if(ex2.includes('snowCloak')&&(d.kind==='body'||d.kind==='neck'))for(let k=0;k<7;k++){const a=(k/6-0.5)*2.2;gb.add(P_sphere(6,4),{s:d.r*(0.42+0.1*(k%3)),t:[Math.sin(a)*d.r*0.82,Math.cos(a)*d.r*d.hk*0.88,d.len*(0.2+0.6*((k*0.37)%1))],c:k%2?C.u:mixc(C.u,0xffffff,0.5)});}
+    if(ex2.includes('geode')&&d.kind==='body')for(let k=0;k<5;k++){const a=(k/4-0.5)*2.6;const p=[Math.sin(a)*d.r*0.9,Math.cos(a)*d.r*d.hk*0.9,d.len*(0.25+0.5*(k%2))];
+      for(let q=0;q<3;q++)gb.along(P_bicone(5),p,[Math.sin(a)+(q-1)*0.3,Math.cos(a),(q-1)*0.3],d.r*(0.9-q*0.2),d.r*0.16,q?C.g:C.a,q===0);}
+    if(ex2.includes('lanterns')&&d.kind==='tail'&&i%2===0){const p=[0,-d.r*d.hk*0.9,d.len*0.5];const q=add3(p,[0,-d.r*1.6,0]);gb.tube([p,q],d.r*0.05,d.r*0.05,3,0x3a2a20);
+      gb.add(P_sphere(7,5),{s:[d.r*0.62,d.r*0.8,d.r*0.62],t:add3(q,[0,-d.r*0.7,0]),c:(l)=>Math.abs(l[1])>0.75?0x2a1a14:C.a});gb.add(P_sphere(5,3),{s:d.r*0.32,t:add3(q,[0,-d.r*0.7,0]),c:C.g,glow:true});}
+    if(ex2.includes('ribbon')&&d.kind==='tail'&&d.idx===sp.tailN-1)for(const sd of[-1,1]){const pts=[];for(let k=0;k<7;k++)pts.push([sd*d.r*(0.3+k*0.25),Math.sin(k*1.2)*d.r*0.8,-k*d.len*0.55]);gb.tube(pts,d.r*0.26,d.r*0.08,4,k=>sd>0?C.a:C.h);}
     if(ex2.includes('gears')&&d.kind==='body')for(const sd of[-1,1]){const c0=[sd*d.r*0.92,0,d.len*0.5];gb.add(P_cyl(1,1,12),{s:[d.r*0.52,d.r*0.1,d.r*0.52],r:[0,0,Math.PI/2],t:c0,c:C.h});
         for(let k=0;k<10;k++){const a=k/10*TAU;gb.add(P_box(),{s:d.r*0.14,r:[a,0,0],t:add3(c0,[0,Math.cos(a)*d.r*0.56,Math.sin(a)*d.r*0.56]),c:C.h});}
         gb.add(P_sphere(5,3),{s:d.r*0.17,t:add3(c0,[sd*d.r*0.06,0,0]),c:C.g,glow:true});}
@@ -1594,13 +1881,13 @@ function dragonGeo(sp,st){
   // 翼
   if(sp.wings){const pairs=sp.wings.pairs||1;
     for(let p=0;p<pairs;p++){const wseg=sp.wings.seg+(sp.plan==='quad'&&pairs===2?p:0);const sg=G.segs[Math.min(wseg,G.segs.length-1)];
-      const Wf=sp.wings.span*S*SK.wing[st]*(p===1&&sp.wings.t!=='petal'&&sp.wings.t!=='moth'?0.8:1);
+      const Wf=sp.wings.span*S*SK.wing[st]*(p===1&&sp.wings.t!=='petal'&&sp.wings.t!=='moth'&&sp.wings.t!=='maple'?0.8:1);
       for(const side of[1,-1]){const gi=new GB(),go=new GB();const r=buildWing(sp,st,Wf,sp.wings.t,gi,go,p);
-        const insect=sp.wings.t==='petal'||sp.wings.t==='moth',flip=sp.wings.t==='flipper';
+        const insect=sp.wings.t==='petal'||sp.wings.t==='moth'||sp.wings.t==='maple',flip=sp.wings.t==='flipper';
         G.wings.push({seg:Math.min(wseg,G.segs.length-1),side,type:sp.wings.t,off:sg.r*(insect?0.42:flip?0.8:0.5),up:flip?-sg.r*sg.hk*0.35:sg.r*sg.hk*(insect?0.62:0.62),along:sg.len*(insect?(p?0.42:0.6):flip?0.75:0.6),
           inner:gi.geo(),innerGlow:gi.glowGeo(),outer:go.geo(),outerGlow:go.glowGeo(),elbow:r.elbow,pair:p,W:Wf,flight:sp.wings.flight!==false,freq:2.4/Math.sqrt(Math.max(0.4,S))});}}}
   // 騎乗ポイント・寸法
-  let total=0;G.segs.forEach(s=>total+=s.len);G.len=total+(G.neckSegLen*sp.neckN)+G.head.l;
+  let total=0;G.segs.forEach(s=>total+=s.len);G.len=total+(G.neckSegLen*sp.neckN)+G.head.l+(sp.squidTail?segDefs[segDefs.length-1].r*5:0);
   G.ride=sp.serp?{seg:Math.min(3,G.segs.length-1),along:0.5}:sp.plan==='turtle'?{seg:0,along:0.55}:{seg:0,along:0.3};
   const rs=G.segs[G.ride.seg];G.ride.up=rs.r*rs.hk*(sp.extras.includes('shell')?1.45:0.95);
   G.radius=Math.max(R0*1.3,0.3);
@@ -1687,6 +1974,28 @@ class DragonRig{
     const mk=(geo,mat,par)=>{const m=new THREE.Mesh(geo,remap(mat));(par||this.g).add(m);this.all.push(m);return m;};
     this.o=G.serp?1:0;
     this.segs=G.segs.map(s=>{const m=mk(s.geo,MAT.body);if(s.glow)mk(s.glow,MAT.glow,m);return m;});
+    // イカのような触腕のしっぽ（関節ごとにヒラヒラ動かす）
+    if(sp.squidTail){this.tents=[];this.tGeo=[];const last=this.segs[this.segs.length-1],sd=G.segs[G.segs.length-1];const N=8,R=G.R0||sd.r,col=sp.col;
+      // 触腕の先のちびドラゴンの顔（-z向き）
+      const miniHead=(hs)=>{const gb=new GB();const sk=(l)=>l[1]<-0.25?col.u:col.b;
+        gb.add(P_sphere(7,5),{s:[hs*0.5,hs*0.42,hs*0.55],t:[0,0,-hs*0.35],c:sk});
+        gb.along(P_cone(6),[0,hs*0.02,-hs*0.6],[0,-0.05,-1],hs*0.75,[hs*0.3,hs*0.22],sk);
+        gb.along(P_cone(5),[0,-hs*0.2,-hs*0.45],[0,-0.12,-1],hs*0.65,[hs*0.24,hs*0.1],col.u);
+        for(const sd2 of[-1,1]){gb.along(P_cone(4),[sd2*hs*0.2,hs*0.25,-hs*0.3],[sd2*0.35,0.45,1],hs*0.55,hs*0.07,col.h);
+          gb.along(P_cone(3),[sd2*hs*0.14,-hs*0.12,-hs*0.95],[0,-1,0],hs*0.14,hs*0.03,0xfff4e0);
+          gb.along(P_sphere(5,3),[sd2*hs*0.3,hs*0.12,-hs*0.6],[sd2*0.6,0.1,-1],hs*0.16,[hs*0.1,hs*0.06],col.e,true);}
+        return gb;};
+      for(let k=0;k<N;k++){const long=k%4===0;const a=k/N*TAU+Math.PI/N;const J=long?10:8;const pl=R*(long?0.42:0.36);let r0=R*(long?0.2:0.17);
+        let par=new THREE.Group();par.position.set(Math.cos(a)*sd.r*0.5,Math.sin(a)*sd.r*sd.hk*0.45,-sd.len*0.15);last.add(par);const joints=[par];
+        const bx=-Math.sin(a)*0.45+0.1,by=Math.cos(a)*0.45;
+        for(let j=0;j<J;j++){const r1=r0*0.9;const gb=new GB();const cf=(l)=>l[1]<-0.2?col.u:col.b;
+          gb.add(P_sphere(6,4),{s:r0,t:[0,0,0],c:cf});
+          gb.along(P_cyl(r1/r0,1,7),[0,0,0],[0,0,-1],pl,r0,cf);
+          gb.add(P_sphere(4,2),{s:r0*0.3,t:[0,-r0*0.9,-pl*0.5],c:col.h});
+          if(j===J-1){const hg=miniHead(r1*2.8);gb.add(P_sphere(5,4),{s:r1,t:[0,0,-pl],c:cf});
+            const g2=hg.geo(),gg=hg.glowGeo();this.tGeo.push(g2);const hm=mk(g2,MAT.body,par);hm.position.z=-pl;if(gg){this.tGeo.push(gg);mk(gg,MAT.glow,hm);}}
+          const geo=gb.geo();this.tGeo.push(geo);mk(geo,MAT.body,par);if(j<J-1){const nx=new THREE.Group();nx.position.set(0,0,-pl);par.add(nx);par=nx;joints.push(nx);}r0=r1;}
+        this.tents.push({joints,ph:k*0.9,long,bx,by});}}
     this.C=[];for(let i=0;i<G.segs.length+this.o;i++)this.C.push(new THREE.Vector3());
     this.V=this.C.map(()=>new THREE.Vector3());
     this.heads=[];this.jaws=[];this.necks=[];
@@ -1723,7 +2032,7 @@ class DragonRig{
   }
   setShadow(b){for(const m of this.all)m.castShadow=b;}
   setVisible(b){this.g.visible=b;}
-  dispose(){if(this._gone)return;this._gone=true;this.parent.remove(this.g);for(const m of this.own)m.dispose();this.G.refs--;this.G.last=performance.now()/1000;}
+  dispose(){if(this._gone)return;this._gone=true;this.parent.remove(this.g);for(const m of this.own)m.dispose();if(this.tGeo)for(const g of this.tGeo)g.dispose();this.G.refs--;this.G.last=performance.now()/1000;}
   mouthPos(out,k=0){const h=this.heads[k]||this.heads[0];const m=this.G.head.mouth;return out.set(m[0],m[1],m[2]).applyMatrix4(h.matrixWorld);}
   headDir(out,k=0){const h=this.heads[k]||this.heads[0];return out.set(0,0,1).applyQuaternion(h.quaternion);}
   chest(out){return out.copy(this.V[this.o?Math.min(3,this.V.length-1):0]);}
@@ -1734,6 +2043,7 @@ class DragonRig{
   update(dt,s){
     if(!this.inited)this.place(s.x,s.y,s.z,s.yaw,s.ground);
     const G=this.G,sp=this.sp,C=this.C,V=this.V,gr=s.ground;this.t+=dt;const t=this.t;
+    if(this.tents){const sw=1+Math.min(1.5,(s.speed||0)/3);for(const T of this.tents){const n=T.joints.length;T.joints.forEach((jn,j)=>{const k=0.25+0.75*j/n;const w=t*2.4*sw-j*0.55+T.ph;jn.rotation.x=Math.sin(w)*0.16*k+(j===0?T.bx:0);jn.rotation.y=Math.cos(w*0.8+T.ph)*0.13*k+(j===0?T.by:0);});}}
     if(this.yawPrev===null)this.yawPrev=s.yaw;
     const dy=angDiff(s.yaw,this.yawPrev);this.yawPrev=s.yaw;this.yawRate=lerp(this.yawRate,dt>0?dy/dt:0,1-Math.exp(-dt*5));
     const fb=s.fb,spd=s.speed,S=G.S,coll=s.collapse||0;
@@ -1918,10 +2228,10 @@ class DragonRig{
       const freq=G.wings[0].freq*(1+(1-this.glide)*0.15+Math.max(0,vy)*0.05);
       this.flap+=dt*freq*TAU*Math.max(fb,this.wingOpen*0.6,wingFlight?0:clamp(spd/4,0,1));
       for(const w of this.wings){const W=w.W,ph=this.flap+W.pair*0.9;
-        if(W.type==='petal'||W.type==='moth'){// 飛行中は羽ばたき、地上では背中に沿わせてたたむ
+        if(W.type==='petal'||W.type==='moth'||W.type==='maple'){// 飛行中は羽ばたき、地上では背中に沿わせてたたむ
           const fr=W.type==='moth'?2.2:4.5;const p=t*fr*TAU+W.pair*0.5;const bl=clamp(fb,0,1);const fold=1-bl;
           const fz=0.25+Math.sin(p)*0.5,fy=(W.pair?0.12:-0.06)+Math.sin(p)*0.05;
-          const rz=W.type==='petal'?1.25+Math.sin(t*1.6+W.pair)*0.05:0.12+Math.sin(t*1.2)*0.03,ry=W.type==='petal'?(W.pair?0.35:0.2):(W.pair?0.95:0.75);
+          const rz=W.type==='petal'||W.type==='maple'?1.25+Math.sin(t*1.6+W.pair)*0.05:0.12+Math.sin(t*1.2)*0.03,ry=W.type==='petal'||W.type==='maple'?(W.pair?0.35:0.2):(W.pair?0.95:0.75);
           w.inn.rotation.set(0,lerp(ry,fy,bl),lerp(rz,fz,bl));const sq=lerp(W.type==='petal'?0.9:0.8,1,bl);w.innM.scale.set(sq,1,sq);continue;}
         if(W.type==='flipper'){const p=t*0.55+W.side*0.4;w.inn.rotation.set(0,0.45+Math.sin(p)*0.12,-0.18+Math.sin(p*1.1)*0.16);continue;}
         if(!W.flight){ // 海竜のヒレ
@@ -1955,47 +2265,58 @@ class DragonRig{
 function makeEgg(sp,parent){const E=eggGeo(sp);const g=new THREE.Group();const m=new THREE.Mesh(E.geo,MAT.body);g.add(m);
   if(E.glow)m.add(new THREE.Mesh(E.glow,MAT.glow));parent.add(g);g.userData.h=E.h;return g;}
 // ================= ワールド生成 =================
-const WORLD=480,HALF=240,SEG=160,CELL=WORLD/SEG;
-const BASE={x:-12,z:44};
-const RIVER=[[-30,-150],[-26,-90],[8,-40],[34,8],[28,62],[50,112],[75,165]];
+const WORLD=960,HALF=480,SEG=320,CELL=WORLD/SEG;
+const BASE={x:-24,z:88};
+const RIVER=[[-60,-300],[-52,-180],[16,-80],[68,16],[56,124],[100,224],[150,330]];
 const LAVA_C=BIOMES.volcano.c;
 function riverDist(x,z){let best=1e9;for(let i=0;i<RIVER.length-1;i++){const [ax,az]=RIVER[i],[bx,bz]=RIVER[i+1];
   const dx=bx-ax,dz=bz-az;const t=clamp(((x-ax)*dx+(z-az)*dz)/(dx*dx+dz*dz),0,1);const d=Math.hypot(x-ax-dx*t,z-az-dz*t);if(d<best)best=d;}return best;}
-const SURF_KEYS=BIOME_KEYS.filter(k=>k!=='cave'&&k!=='sky');
-function biomeWeights(x,z){const wx=x+fbm(x*0.008,z*0.008,3)*45,wz=z+fbm(x*0.008+40,z*0.008-20,3)*45;
-  const w={};let sum=0;for(const k of SURF_KEYS){const c=BIOMES[k].c;const d=Math.hypot(wx-c[0],wz-c[1]);const v=1/Math.pow(d*d+400,2.2);w[k]=v;sum+=v;}
+const SURF_KEYS=BIOME_KEYS.filter(k=>k!=='cave'&&k!=='sky'&&k!=='ocean');
+function coastR(x,z){const ex=Math.abs(x)/HALF,ez=Math.abs(z)/HALF;return Math.pow(Math.pow(ex,5)+Math.pow(ez,5),0.2)*HALF+fbm(x*0.01+7,z*0.01-3,3)*26;}
+function biomeWeights(x,z){const wx=x+fbm(x*0.004,z*0.004,3)*90,wz=z+fbm(x*0.004+40,z*0.004-20,3)*90;
+  const w={};let sum=0;for(const k of SURF_KEYS){const c=BIOMES[k].c;const d=Math.hypot(wx-c[0],wz-c[1]);const v=1/Math.pow(d*d+1600,2.2);w[k]=v;sum+=v;}
   for(const k of SURF_KEYS)w[k]/=sum;return w;}
-function biomeAt(x,z){if(x>600)return 'cave';if(x<-600)return 'sky';const w=biomeWeights(x,z);let b='meadow',m=-1;for(const k in w)if(w[k]>m){m=w[k];b=k;}return b;}
+function biomeAt(x,z){if(x>1200)return 'cave';if(x<-1200)return 'sky';if(coastR(x,z)>HALF-95&&Hsurf(x,z)<-2)return 'ocean';const w=biomeWeights(x,z);let b='meadow',m=-1;for(const k in w)if(w[k]>m){m=w[k];b=k;}return b;}
 function hBiome(b,x,z){
   const n=fbm(x*0.025,z*0.025);
   switch(b){
     case 'meadow':return 2.4+n*3.2+fbm(x*0.09,z*0.09,2)*0.5;
     case 'forest':return 3.2+n*6+fbm(x*0.07,z*0.07,2)*1.2;
     case 'swamp':{let h=0.6+n*0.9;const p=vnoise(x*0.07+5,z*0.07-3);if(p>0.2)h-=(p-0.2)*4.5;return Math.max(h,-0.9);}
-    case 'lake':{const c=BIOMES.lake.c;const d=Math.hypot(x-c[0],z-c[1]);return 2.2+n*2-10*(1-smooth(18,72,d));}
+    case 'lake':{const c=BIOMES.lake.c;const d=Math.hypot(x-c[0],z-c[1]);return 2.2+n*2-10*(1-smooth(28,115,d));}
     case 'desert':{let h=3+(Math.sin(x*0.055+n*2.6)*0.5+0.5)*3.2+n*1.5;const m=vnoise(x*0.016+3,z*0.016-5);
       if(m>0.3){const u=clamp((m-0.3)/0.07,0,1);h+=Math.floor(u*3)/3*11+(u>=1?fbm(x*0.1,z*0.1,2)*0.6:0);}return h;}
     case 'volcano':{const c=LAVA_C;const d=Math.hypot(x-c[0],z-c[1]);let h=3.5+n*2.5+ridged(x*0.04,z*0.04,3)*2;
-      const cone=34*Math.pow(Math.max(0,1-d/92),1.5);h+=cone;if(d<17)h=34*Math.pow(1-17/92,1.5)+3.5-(17-d)*1.0;
-      const p=vnoise(x*0.05+9,z*0.05+2);if(d>38&&p>0.42)h=Math.min(h,0.6+n*0.4);return h;}
+      const cone=38*Math.pow(Math.max(0,1-d/150),1.5);h+=cone;if(d<26)h=38*Math.pow(1-26/150,1.5)+3.5-(26-d)*0.8;
+      const p=vnoise(x*0.05+9,z*0.05+2);if(d>60&&p>0.42)h=Math.min(h,0.6+n*0.4);return h;}
     case 'snow':{const r=ridged(x*0.018,z*0.018,4);return 4+r*r*34+n*2.5;}
+    case 'flowerhills':return 3+Math.sin(x*0.035)*Math.cos(z*0.03)*3+n*2.5;
+    case 'autumn':return 3.5+n*6+fbm(x*0.06,z*0.06,2)*1.4;
+    case 'sakura':return 3+n*3+Math.abs(Math.sin(x*0.018+n))*3;
+    case 'beach':{let h=0.95+n*0.9;const p=vnoise(x*0.06+2,z*0.06-7);if(p>0.38)h-=(p-0.38)*8;return h;}
+    case 'mushroom':return 2.6+n*3.4+fbm(x*0.08,z*0.08,2)*0.8;
+    case 'canyon':{let h=3+n*1.5;const m=vnoise(x*0.013+7,z*0.013-1);if(m>0.05){const u=clamp((m-0.05)/0.06,0,1);h+=Math.floor(u*4)/4*18+(u>=1?fbm(x*0.1,z*0.1,2)*0.6:0);}return h;}
+    case 'crystal':{const r=ridged(x*0.02,z*0.02,3);return 5+r*r*18+n*2;}
+    case 'tundra':{let h=2.6+n*1.0;const p=vnoise(x*0.04+5,z*0.04+9);if(p>0.35)h=Math.min(h,0.75);return h;}
     case 'ruins':{const b0=10+n*5;let h=Math.floor(b0/3.2)*3.2+smooth(2.5,3.2,b0%3.2)*3.2;
       const ch=Math.abs(vnoise(x*0.011+11,z*0.011+4));if(ch<0.16)h=lerp(1.4,h,smooth(0.07,0.16,ch));return h;}
   }return 2;}
 function rawHeight(x,z){
   const w=biomeWeights(x,z);let h=0;for(const k of SURF_KEYS)if(w[k]>0.002)h+=w[k]*hBiome(k,x,z);
-  const rd=riverDist(x,z);const rw=6+clamp((z+150)/300,0,1)*5;
+  const rd=riverDist(x,z);const rw=7+clamp((z+300)/600,0,1)*6;
   if(rd<rw*2)h=lerp(-1.8,h,smooth(rw*0.55,rw*2,rd));
   const db=Math.hypot(x-BASE.x,z-BASE.z);if(db<16)h=lerp(2.6,h,smooth(9,16,db));
-  const r=Math.max(Math.abs(x),Math.abs(z));if(r>HALF-34)h=lerp(h,-5,smooth(HALF-34,HALF-8,r));
+  // 島の外周：なめらかな海岸線の先は深い外洋
+  const sr=coastR(x,z);
+  if(sr>HALF-100)h=lerp(h,-7,smooth(HALF-100,HALF-48,sr));
   return h;}
 const HGRID=new Float32Array((SEG+1)*(SEG+1));
-function H(x,z){return x>600?zgrid(CAVE_H,CAVE,x,z):x<-600?zgrid(SKY_H,SKY,x,z):Hsurf(x,z);}
+function H(x,z){return x>1200?zgrid(CAVE_H,CAVE,x,z):x<-1200?zgrid(SKY_H,SKY,x,z):Hsurf(x,z);}
 function Hsurf(x,z){const fx=clamp((x+HALF)/CELL,0,SEG-0.0001),fz=clamp((z+HALF)/CELL,0,SEG-0.0001);const i=Math.floor(fx),j=Math.floor(fz),u=fx-i,v=fz-j;
   const r=SEG+1;const h00=HGRID[j*r+i],h10=HGRID[j*r+i+1],h01=HGRID[(j+1)*r+i],h11=HGRID[(j+1)*r+i+1];
   return v>=u?h00+(h11-h01)*u+(h01-h00)*v:h00+(h10-h00)*u+(h11-h10)*v;}
 const WATER_Y=0;
-const inWorld=(x,z)=>x>600?Math.hypot(x-CAVE.cx,z-CAVE.cz)<CAVE.R:x<-600?Math.hypot(x-SKY.cx,z-SKY.cz)<SKY.R:Math.abs(x)<HALF-10&&Math.abs(z)<HALF-10;
+const inWorld=(x,z)=>x>1200?Math.hypot(x-CAVE.cx,z-CAVE.cz)<CAVE.R:x<-1200?Math.hypot(x-SKY.cx,z-SKY.cz)<SKY.R:Math.abs(x)<HALF-10&&Math.abs(z)<HALF-10;
 const LAVA_DISCS=[];
 
 function faceColor(b,b2,x,z,h,ny){
@@ -2012,12 +2333,21 @@ function faceColor(b,b2,x,z,h,ny){
     case 'volcano':c=h<1.6?0xd8501a:(h>24?0x5a2a20:(steep?0x2e2826:(vnoise(x*0.07,z*0.07)>0.2?0x5a4a44:0x3a3230)));break;
     case 'snow':c=h<3.5?0xa8d4ec:(steep&&h<20?0x7a8290:(ny<0.6?0x8a92a0:0xeef3fa));break;
     case 'ruins':c=h<3?(j>0.7?0x5a3a9a:0x2a1a44):(steep?0x5a564c:(vnoise(x*0.09,z*0.09)>0.25?0x6a7a4a:0x8a8676));break;
+    case 'flowerhills':c=steep?0x8a9a72:(vnoise(x*0.06,z*0.06)>0.1?0x8ad05a:0x76c04c);break;
+    case 'autumn':c=steep?0x7a6a58:(vnoise(x*0.05,z*0.05)>0?0xa89a48:0x8e8a3c);break;
+    case 'sakura':c=steep?0x8a8a7a:(vnoise(x*0.06,z*0.06)>0?0x9ad08a:0x88c47a);break;
+    case 'beach':c=h<2?0xf4ecd4:(vnoise(x*0.07,z*0.07)>0.2?0x9ad07a:0xe8dcb8);break;
+    case 'mushroom':c=steep?0x5a4a5a:(vnoise(x*0.07,z*0.07)>0?0x6a5a8a:0x58497a);break;
+    case 'canyon':c=h>7?[0xb8583a,0xd07a4a,0x9a4a30,0xe09a6a][Math.floor(h/2.2)%4]:(steep?0xa85a3a:(vnoise(x*0.1,z*0.1)>0?0xd09a6a:0xc48a5a));break;
+    case 'crystal':c=steep?0x6a7a9a:(vnoise(x*0.07,z*0.07)>0.2?0xb8d0f0:0x8aa0c8);if(j>0.94)c=0xe8f8ff;break;
+    case 'tundra':c=h<0.9?0xc8e4f4:(vnoise(x*0.05,z*0.05)>0?0xf0f4fa:0xdfe8f0);break;
     default:c=0x78c250;}
-  c=shade(c,jit);if(b==='meadow'||b==='lake'||b==='forest'){const q=hash2(Math.floor(x*0.37)+7,Math.floor(z*0.41)-3);if(q>0.93)c=mixc(c,q>0.965?0xf0c8e8:0xfff0b0,0.28);}
+  c=shade(c,jit);if(b==='meadow'||b==='lake'||b==='forest'||b==='flowerhills'){const q=hash2(Math.floor(x*0.37)+7,Math.floor(z*0.41)-3);if(q>(b==='flowerhills'?0.8:0.93))c=mixc(c,[0xf0c8e8,0xfff0b0,0xc8d0ff,0xffb8a0][Math.floor(q*997)%4],b==='flowerhills'?0.45:0.28);}
+  if(b==='sakura'&&!steep&&h>0.6){const q=hash2(Math.floor(x*0.5)+3,Math.floor(z*0.5)+1);if(q>0.82)c=mixc(c,0xf6c0d8,0.55);}
   return mixc(c,0xfff0ea,0.09);}
 
 let terrainMesh,waterMesh;const TERRAIN=[];
-function updateTerrainVis(cx,cz){for(const m of TERRAIN)m.visible=Math.hypot(m.userData.cx-cx,m.userData.cz-cz)<230;}
+function updateTerrainVis(cx,cz){for(const m of TERRAIN)m.visible=Math.hypot(m.userData.cx-cx,m.userData.cz-cz)<215;}
 function buildTerrain(scene){buildZoneGrids();
   const r=SEG+1;for(let j=0;j<r;j++)for(let i=0;i<r;i++)HGRID[j*r+i]=rawHeight(-HALF+i*CELL,-HALF+j*CELL);
   const CS=20,NC=SEG/CS;const n=CS*CS*6;let pos,nor,col,o=0;
@@ -2043,7 +2373,7 @@ function buildTerrain(scene){buildZoneGrids();
   const lavaMat=new THREE.MeshBasicMaterial({color:0xff5a1a});MAT.lava=lavaMat;
   const disc=(r,y,cx,cz)=>{const gb=new GB();for(let i=0;i<20;i++){const a0=i/20*TAU,a1=(i+1)/20*TAU;gb.tri1([0,0,0],[Math.cos(a1)*r,0,Math.sin(a1)*r],[Math.cos(a0)*r,0,Math.sin(a0)*r],0xffffff);}
     const m=new THREE.Mesh(gb.geo(),lavaMat);m.position.set(cx,y,cz);scene.add(m);LAVA_DISCS.push({x:cx,z:cz,r,y});};
-  disc(72,1.15,LAVA_C[0],LAVA_C[1]);disc(15,H(LAVA_C[0],LAVA_C[1])+1.6,LAVA_C[0],LAVA_C[1]);
+  disc(115,1.15,LAVA_C[0],LAVA_C[1]);disc(24,H(LAVA_C[0],LAVA_C[1])+1.6,LAVA_C[0],LAVA_C[1]);
   return biomeGrid;
 }
 function lavaAt(x,z){for(const d of LAVA_DISCS){if(Math.hypot(x-d.x,z-d.z)<d.r&&H(x,z)<d.y-0.05)return true;}return false;}
@@ -2067,6 +2397,17 @@ function envGeo(type){const gb=new GB();
     case 'stalag':gb.along(P_cone(6),[0,0,0],[0,1,0],3.4,0.75,(l,w)=>hash3(w)>0.6?0x5a5a6a:0x48485a);gb.along(P_cone(5),[0.7,0,0.3],[0.15,1,0.05],1.9,0.42,0x52526a);
       gb.along(P_cone(4),[-0.5,0,-0.4],[-0.1,1,0],1.2,0.3,0x4a4a5c);gb.add(P_bicone(4),{s:[0.14,0.34,0.14],t:[-0.45,0.55,0.35],c:0x70d0ff,glow:true});gb.add(P_bicone(4),{s:[0.1,0.26,0.1],t:[0.55,0.4,-0.4],c:0xa080ff,glow:true});break;
     case 'cloudpuff':for(let k=0;k<5;k++){const a=k*1.3;gb.add(P_sphere(7,4),{s:[2.6-k*0.3,1.2-k*0.1,2.0-k*0.2],t:[Math.cos(a)*2*(k?1:0),k*0.25,Math.sin(a)*1.5*(k?1:0)],c:(l)=>l[1]<-0.2?0xe4ecff:0xffffff});}break;
+    case 'sakuratree':gb.tube([[0,0,0],[0.15,1.2,0.05],[0.05,2.0,0.1]],0.24,0.14,5,0x5a3a30);gb.tube([[0.08,1.5,0.05],[0.7,2.2,0.2]],0.1,0.06,4,0x5a3a30);
+      for(const [x,y,z,r] of[[0,2.6,0,1.3],[0.8,2.4,0.3,0.9],[-0.7,2.3,-0.2,0.9],[0.1,3.2,-0.3,0.8]])gb.add(P_sphere(6,4),{s:[r,r*0.8,r],t:[x,y,z],c:(l,w)=>hash3(w)>0.7?0xffe8f0:(l[1]>0.2?0xf8c8dc:0xe8a0c0)});break;
+    case 'autumntree':gb.along(P_cyl(0.7,1,5),[0,0,0],[0,1,0],1.7,0.22,0x6a4228);
+      for(const [x,y,z,r] of[[0,2.3,0,1.3],[0.6,2.9,0.2,0.9],[-0.5,2.8,-0.3,0.85]])gb.add(P_sphere(6,4),{s:[r,r*0.85,r],t:[x,y,z],c:(l,w)=>{const q=hash3(w);return q>0.66?0xe85a2a:q>0.33?0xf09a30:0xd03a28;}});break;
+    case 'bigshroom':gb.along(P_cyl(0.75,1,7),[0,0,0],[0,1,0],4.2,0.5,(l,w)=>hash3(w)>0.8?0xe8dcc8:0xf6eedc);gb.add(P_sphere(10,5),{s:[2.8,1.1,2.8],t:[0,4.3,0],c:(l,w)=>l[1]<-0.2?0xf0d8f0:(hash3(w)>0.82?0xfff6ff:0x9a5ad0)});
+      for(let k=0;k<6;k++){const a=k/6*TAU;gb.add(P_sphere(4,3),{s:[0.28,0.12,0.28],t:[Math.cos(a)*1.6,4.95,Math.sin(a)*1.6],c:0xb0f0ff,glow:true});}gb.add(P_cyl(1,1,8),{s:[1.6,0.06,1.6],t:[0,3.5,0],c:0xe8c8f0});break;
+    case 'spire':gb.along(P_bicone(6),[0,0,0],[0.05,1,0],5.5,0.6,(l)=>l[1]>0.2?0xe0f8ff:0x8ac0f0);gb.along(P_bicone(5),[0.6,0,0.3],[0.3,1,0.1],3,0.35,0xc8ecff);gb.along(P_bicone(5),[-0.5,0,-0.3],[-0.25,1,-0.1],2.4,0.3,0xb0e0ff);
+      gb.add(P_bicone(5),{s:[0.18,0.6,0.18],t:[0.05,5.2,0],c:0xe8ffff,glow:true});break;
+    case 'coral':for(let k=0;k<5;k++){const a=k*1.3;const col=[0xff8a9a,0xffb060,0xf060a0,0xff9ac8,0xffd0a0][k];gb.tube([[Math.cos(a)*0.2,0,Math.sin(a)*0.2],[Math.cos(a)*0.45,0.5,Math.sin(a)*0.45],[Math.cos(a)*0.4,0.9+k%2*0.3,Math.sin(a)*0.4]],0.09,0.05,4,col);}
+      gb.add(P_sphere(5,3),{s:[0.25,0.12,0.2],t:[0.6,0.05,-0.4],c:0xfff0e0});break;
+    case 'hoodoo':for(let k=0;k<4;k++){gb.add(P_cyl(0.9,1,7),{s:[0.9-k*0.12,1.1,0.9-k*0.12],t:[0,0.55+k*1.1,0],c:[0xb8583a,0xd07a4a,0x9a4a30,0xe09a6a][k]});}gb.add(P_sphere(6,4),{s:[0.9,0.4,0.9],t:[0,4.6,0],c:0x8a4a30});break;
     case 'rock':gb.add(P_sphere(5,3),{s:[1,0.7,0.85],r:[0.2,0.5,0.1],t:[0,0.3,0],c:(l,w)=>hash3(w)>0.5?0x8a8a86:0x76767a});break;
     case 'boulder':gb.add(P_sphere(6,4),{s:[2.0,1.5,1.7],r:[0.1,0.7,0.2],t:[0,0.8,0],c:(l,w)=>hash3(w)>0.5?0x8a8478:0x6e6a62});gb.add(P_sphere(4,3),{s:[1,0.8,1],t:[1.2,0.4,0.6],c:0x7a7670});break;
     case 'grass':for(let k=0;k<5;k++){const a=k/5*TAU;gb.along(P_cone(3),[Math.cos(a)*0.15,0,Math.sin(a)*0.15],[Math.cos(a)*0.4,1,Math.sin(a)*0.4],0.6+k%2*0.2,0.06,0x5aa83a);}break;
@@ -2101,7 +2442,7 @@ const ENV_DEFS={
   mushroom:{res:{herb:[1,2]},hits:2,col:0.6,resp:90,n:'大キノコ'},rock:{res:{stone:[1,2]},hits:2,col:0.7,resp:80,n:'岩'},boulder:{res:{stone:[2,4],iron:[0,1]},hits:4,col:1.6,resp:120,n:'大岩'},
   grass:{},flower:{},glowshroom:{},lumiflower:{},bush:{res:{berry:[2,3]},hits:1,col:0,resp:60,n:'ベリーの茂み'},herb:{res:{herb:[1,2]},hits:1,col:0,resp:60,n:'薬草'},
   iron:{res:{iron:[1,2],stone:[0,1]},hits:3,col:0.7,resp:120,n:'鉄鉱脈'},crystal:{res:{crystal:[1,2]},hits:3,col:0.5,resp:150,n:'竜晶',glowMat:true},
-  icespike:{col:0.5},stalag:{col:0.75},cloudpuff:{},reed:{},pillar:{col:0.8},block:{col:1.0},nest:{nest:true,n:'ドラゴンの巣'},nestegg:{},
+  icespike:{col:0.5},sakuratree:{res:{wood:[2,3],berry:[0,1]},hits:3,col:0.6,resp:90,n:'桜の木'},autumntree:{res:{wood:[2,3],berry:[0,1]},hits:3,col:0.6,resp:90,n:'紅葉の木'},bigshroom:{res:{herb:[2,3]},hits:4,col:1.0,resp:120,n:'巨大キノコ'},spire:{res:{crystal:[1,2]},hits:5,col:0.9,resp:150,n:'水晶の柱'},coral:{res:{stone:[1,1]},hits:1,col:0.4,resp:80,n:'サンゴ'},hoodoo:{res:{stone:[2,3],iron:[0,1]},hits:4,col:1.0,resp:120,n:'岩の塔'},stalag:{col:0.75},cloudpuff:{},reed:{},pillar:{col:0.8},block:{col:1.0},nest:{nest:true,n:'ドラゴンの巣'},nestegg:{},
 };
 const ENV_TABLE={
   meadow:[['grass',0.3],['flower',0.08],['lumiflower',0.018],['tree',0.05],['bush',0.035],['herb',0.03],['rock',0.025],['boulder',0.006]],
@@ -2111,6 +2452,14 @@ const ENV_TABLE={
   desert:[['cactus',0.035],['rock',0.04],['boulder',0.012],['iron',0.018],['dead',0.01]],
   volcano:[['rock',0.05],['boulder',0.02],['dead',0.025],['iron',0.022],['crystal',0.007]],
   snow:[['snowpine',0.06],['icespike',0.03],['rock',0.03],['crystal',0.014],['iron',0.01]],
+  flowerhills:[['flower',0.22],['grass',0.28],['lumiflower',0.03],['bush',0.04],['tree',0.025],['herb',0.03],['rock',0.012]],
+  autumn:[['autumntree',0.16],['tree',0.03],['grass',0.12],['mushroom',0.015],['bush',0.04],['herb',0.04],['rock',0.02],['iron',0.006]],
+  sakura:[['sakuratree',0.1],['grass',0.22],['flower',0.05],['bush',0.03],['herb',0.03],['rock',0.015],['reed',0.02]],
+  beach:[['palm',0.035],['coral',0.04],['rock',0.02],['grass',0.06],['reed',0.03]],
+  mushroom:[['bigshroom',0.07],['glowshroom',0.08],['mushroom',0.05],['grass',0.12],['herb',0.04],['rock',0.01]],
+  canyon:[['hoodoo',0.02],['rock',0.04],['boulder',0.015],['cactus',0.015],['dead',0.012],['iron',0.022]],
+  crystal:[['spire',0.035],['crystal',0.03],['rock',0.03],['icespike',0.01],['iron',0.012]],
+  tundra:[['icespike',0.02],['snowpine',0.015],['rock',0.025],['boulder',0.006],['crystal',0.006]],
   ruins:[['lumiflower',0.012],['pillar',0.022],['block',0.035],['rock',0.02],['crystal',0.018],['grass',0.08],['dead',0.01],['iron',0.01]],
 };
 const ENV={};const ENV_GRID=new Map();const NESTS=[];
@@ -2133,15 +2482,15 @@ function buildEnvironment(scene,biomeGrid){
       roll-=p;}
   }
   // 巣：各バイオームに4つ
-  for(const b of BIOME_KEYS){let placed=0,tries=0;const c=BIOMES[b].c;
-    while(placed<4&&tries<400){tries++;const a=R()*TAU,d=20+R()*55;const x=c[0]+Math.cos(a)*d,z=c[1]+Math.sin(a)*d;if(!inWorld(x,z))continue;
+  for(const b of BIOME_KEYS){if(b==='ocean')continue;let placed=0,tries=0;const c=BIOMES[b].c;
+    while(placed<(b==='cave'||b==='sky'?4:7)&&tries<600){tries++;const a=R()*TAU,d=b==='cave'||b==='sky'?20+R()*55:20+R()*140;const x=c[0]+Math.cos(a)*d,z=c[1]+Math.sin(a)*d;if(!inWorld(x,z))continue;
       const h=H(x,z);if(h<0.6||lavaAt(x,z)||biomeAt(x,z)!==b)continue;
       const sl=Math.abs(H(x+1,z)-H(x-1,z))+Math.abs(H(x,z+1)-H(x,z-1));if(sl>1.5)continue;
       const o={x,z,y:h,s:1,r:R()*TAU,alive:true,timer:0,b,egg:true};lists.nest.push(o);lists.nestegg.push(Object.assign({},o));NESTS.push({nest:o,idx:lists.nest.length-1});placed++;}}
   zoneEnv(lists,R);
   const dummy=new THREE.Object3D();
   for(const t in lists){const arr=lists[t];if(!arr.length)continue;const gb=envGeo(t);const geo=gb.geo();
-    const mat=ENV_DEFS[t].glowMat?new THREE.MeshLambertMaterial({vertexColors:true,emissive:0x3060a0}):['grass','flower','reed','lumiflower'].includes(t)?(MAT.swayG||(MAT.swayG=swayMat(0.16,0.05))):['tree','pine','snowpine','palm'].includes(t)?(MAT.swayT||(MAT.swayT=swayMat(0.028,1.0))):MAT.body;
+    const mat=ENV_DEFS[t].glowMat?new THREE.MeshLambertMaterial({vertexColors:true,emissive:0x3060a0}):['grass','flower','reed','lumiflower'].includes(t)?(MAT.swayG||(MAT.swayG=swayMat(0.16,0.05))):['tree','pine','snowpine','palm','sakuratree','autumntree'].includes(t)?(MAT.swayT||(MAT.swayT=swayMat(0.028,1.0))):MAT.body;
     const im=new THREE.InstancedMesh(geo,mat,arr.length);im.instanceMatrix.setUsage(THREE.DynamicDrawUsage);im.frustumCulled=false;
     im.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(arr.length*3),3);im.instanceColor.setUsage(THREE.DynamicDrawUsage);
     const gl=gb.glowGeo();let glowIm=null;if(gl){glowIm=new THREE.InstancedMesh(gl,MAT.glowI||(MAT.glowI=new THREE.MeshBasicMaterial({vertexColors:true})),arr.length);whiteColors(glowIm);glowIm.instanceMatrix.setUsage(THREE.DynamicDrawUsage);glowIm.frustumCulled=false;scene.add(glowIm);}
@@ -2205,7 +2554,7 @@ function updateClouds(dt){if(!clouds)return;const {im,arr,d}=clouds;for(let i=0;
 let miniImg=null;
 function buildMinimap(biomeGrid){const c=document.createElement('canvas');c.width=c.height=SEG;const g=c.getContext('2d');const im=g.createImageData(SEG,SEG);
   for(let j=0;j<SEG;j++)for(let i=0;i<SEG;i++){const x=-HALF+(i+0.5)*CELL,z=-HALF+(j+0.5)*CELL;const h=H(x,z);let col;
-    if(h<-0.2)col=0x3a8ad0;else{const b=biomeGrid[j*SEG+i];col={meadow:0x78c250,forest:0x3a7a38,swamp:0x5a6a38,lake:0x6cba5a,desert:0xe0b878,volcano:0x4a3a34,snow:0xeef3fa,ruins:0x8a8676}[b];
+    if(h<-0.2)col=0x3a8ad0;else{const b=biomeGrid[j*SEG+i];col={meadow:0x78c250,forest:0x3a7a38,swamp:0x5a6a38,lake:0x6cba5a,desert:0xe0b878,volcano:0x4a3a34,snow:0xeef3fa,ruins:0x8a8676,flowerhills:0x9ad86a,autumn:0xc8903a,sakura:0xf0b8d0,beach:0xf4ecd4,mushroom:0x8a6ab0,canyon:0xc8683a,crystal:0xb0d0f0,tundra:0xe8f0f8}[b];
       if(b==='volcano'&&lavaAt(x,z))col=0xff5a1a;col=shade(col,0.8+clamp(h/40,0,0.4));}
     const r=rgb(col);const o=(j*SEG+i)*4;im.data[o]=r[0]*255;im.data[o+1]=r[1]*255;im.data[o+2]=r[2]*255;im.data[o+3]=255;}
   g.putImageData(im,0,0);miniImg=c;}
@@ -2243,14 +2592,14 @@ const GROUND_SWIM=(x,z)=>Math.max(H(x,z),WATER_Y-0.3);
 class Dragon{
   constructor(spId,lv,o={}){
     this.sp=SP[spId];this.lv=lv;this.stage=o.stage!==undefined?o.stage:stageOf(lv);this.data=o.data||null;this.team=o.team||'wild';
-    this.pos=new THREE.Vector3(o.x,0,o.z);this.gfn=this.sp.swim?GROUND_SWIM:H;this.pos.y=this.gfn(o.x,o.z);
+    this.pos=new THREE.Vector3(o.x,0,o.z);this.gfn=this.sp.swim?(this.sp.depth?((x,z)=>Math.max(H(x,z)+0.35,WATER_Y-this.sp.depth*(0.6+0.4*Math.min(1,this.sp.size/2)))):GROUND_SWIM):H;this.pos.y=this.gfn(o.x,o.z);
     this.yaw=o.yaw!==undefined?o.yaw:Math.random()*TAU;this.speed=0;this.vy=0;this.fb=this.sp.float?1:0;this.flying=false;this.air=false;
     this.hoverH=hoverOf(this.sp,this.stage);this.flyH=9;this.circ=Math.random()<0.5?1:-1;this.circT=rnd(4,9);
     this.calc();this.hp=o.hp!==undefined?o.hp:this.maxHp;
     this.anim={bite:0,breath:0,hurt:0,roar:0,collapse:0};this.cd={bite:rnd(0.5,1.5),breath:rnd(3,7)};this.st={slow:0,stun:0,burn:0};
     this.ai={state:'wander',think:rnd(0,2),tx:o.x,tz:o.z,home:[o.x,o.z],target:null,flee:0};
     this.weak=0;this.weakUsed=false;this.dead=0;this.look=0;this.pend=[];this.isMount=false;this.frame=Math.floor(Math.random()*4);
-    this.makeRig();
+    this.makeRig();if(this.sp.swarm)this.swarm=new Swarm(this);
   }
   makeRig(){if(this.rig)this.rig.dispose();this.rig=new DragonRig(this.sp,this.stage,scene);this.rig.place(this.pos.x,this.pos.y+this.hoverH*this.fb,this.pos.z,this.yaw,this.gfn);
     this.rig.setShadow(this.team==='ally'&&renderer.shadowMap.enabled);this.radius=this.rig.G.radius;}
@@ -2267,14 +2616,14 @@ class Dragon{
       this.circT-=dt;if(this.circT<=0){this.circT=rnd(4,9);if(Math.random()<0.5)this.circ*=-1;}
       const ty=this.yaw+this.circ*0.55;const k=mag/0.3;dx=lerp(Math.sin(ty),dx,k);dz=lerp(Math.cos(ty),dz,k);mag=Math.max(mag,0.3);boost=Math.min(boost,1);}
     const water=this.sp.swim&&this.inWater();
-    const maxS=this.maxSpd*(this.isMount?MOUNT_SPD:1)*boost*(this.fb>0.5&&!this.sp.float?1.7:1)*(this.st.slow>0?0.5:1)*(water?1.35:1)*(this.sp.swim&&!water&&this.sp.plan==='sea'?0.55:1);
+    const maxS=this.maxSpd*(this.isMount?MOUNT_SPD:1)*(this.rampage?1.6:1)*boost*(this.fb>0.5&&!this.sp.float?1.7:1)*(this.st.slow>0?0.5:1)*(water?1.35:1)*(this.sp.swim&&!water&&this.sp.plan==='sea'?0.55:1);
     let want=0;
     if(mag>0.02&&this.st.stun<=0&&!this.dead){const ty=Math.atan2(dx,dz);const d=angDiff(ty,this.yaw);
       const tr=(this.fb>0.5?2.1:3.2)/Math.sqrt(Math.max(0.5,this.S))*(this.sp.serp?0.85:1)*1.3;
       this.yaw+=clamp(d,-tr*dt,tr*dt);want=maxS*mag*Math.max(0.12,Math.cos(clamp(d,-1.45,1.45)));}
     this.speed=lerp(this.speed,want,1-Math.exp(-dt*(want>this.speed?2.6:4.5)));this._maxS=maxS;
   }
-  walkable(nx,nz,gy){const h=H(nx,nz);if(H(this.pos.x,this.pos.z)<-0.75)return true;if(!this.sp.swim&&h<-0.75)return false;if(this.sp.el!=='fire'&&lavaAt(nx,nz))return false;
+  walkable(nx,nz,gy){const h=H(nx,nz);if(this.sp.deepOnly&&!this.isMount&&h>-0.9)return false;if(H(this.pos.x,this.pos.z)<-0.75)return true;if(!this.sp.swim&&h<-0.75)return false;if(this.sp.el!=='fire'&&lavaAt(nx,nz))return false;
     const d=Math.hypot(nx-this.pos.x,nz-this.pos.z)||1e-3;return (this.gfn(nx,nz)-gy)/d<1.7;}
   physics(dt){
     const gy=this.gfn(this.pos.x,this.pos.z);
@@ -2306,7 +2655,7 @@ class Dragon{
       collapse:this.anim.collapse,bite:this.anim.bite,breath:this.anim.breath,hurt:this.anim.hurt,roar:this.anim.roar,look:this.look,swim:this.sp.swim&&this.inWater(),maxSpd:this.maxSpd});
   }
   hurtRaw(d,att){if(this.dead)return;this.hp-=d;if(this.hp<=0){this.hp=0;onDragonDown(this,att);}}
-  takeDamage(d,att){if(this.dead)return;if(this.mirage&&this.mirage.state==='stranded')d*=1.6;this.hp-=d;this.anim.hurt=1;
+  takeDamage(d,att){if(this.dead)return;if(this.mirage&&this.mirage.state==='stranded')d*=1.6;if(this.swarm)d=swarmGuard(this,d);if(this.camoHidden){camoReveal(this);d*=1.3;}this.hp-=d;this.anim.hurt=1;
     if(this.team==='wild'){if(att&&!att.dead){if(this.sp.aggro===0&&!this.weakUsed){this.ai.state='flee';this.ai.flee=2.5;this.ai.target=att;}else{this.ai.state='chase';this.ai.target=att;}}
       if(this.hp>0&&this.hp<this.maxHp*0.2&&!this.weakUsed){this.weakUsed=true;this.weak=30;this.ai.state='weak';this.speed=0;this.flying=false;
         toast(`${this.sp.name}が弱っている！ ✋で捕食、⚔でとどめも刺せる`,3);}}
@@ -2412,7 +2761,7 @@ function lerpAngle(a,b,t){return a+angDiff(b,a)*t;}
 function hostilesOf(team){if(team==='ally')return game.wild.filter(d=>!d.dead);const out=game.allies.filter(d=>!d.dead&&!d.isMount);out.push(player.mount||player);return out.filter(e=>!e.dead);}
 function entCenter(e,out){return e.isPlayer?e.center(out):e.center(out);}
 function nearestHostile(src,team,range,opt={}){let best=null,bd=range;src.center?src.center(_w):_w.copy(src.pos);
-  for(const e of hostilesOf(team)){if(opt.noWeak&&e.weak>0)continue;entCenter(e,_q);const d=_q.distanceTo(_w)-(e.radius||0.4);if(d<bd){bd=d;best=e;}}return best;}
+  for(const e of hostilesOf(team)){if(e.camoHidden||(opt.noWeak&&e.weak>0))continue;entCenter(e,_q);const d=_q.distanceTo(_w)-(e.radius||0.4);if(d<bd){bd=d;best=e;}}return best;}
 function hitEnt(att,tgt,power,el,opt={}){
   if(!tgt||tgt.dead)return 0;let real=tgt;if(tgt.isPlayer&&tgt.mount)real=tgt.mount;
   const tel=real.isPlayer?null:real.sp.el;const mul=elMul(el,tel);
@@ -2442,7 +2791,7 @@ function onDragonDown(d,att){
 // ================= ブレス・攻撃 =================
 function tryBite(d,tgt){if(d.cd.bite>0||d.st.stun>0)return false;d.cd.bite=d.isMount?0.55:1.2+Math.random()*0.4;d.anim.bite=1;
   d.pend.push({t:0.16,fn:()=>{const t=tgt||nearestHostile(d,d.team,1.6+d.S*1.4);if(!t)return;
-    d.rig.mouthPos(_w);entCenter(t,_q);if(_q.distanceTo(_w)<1.3+d.S*1.0+(t.radius||0.4))hitEnt(d,t,d.atk*(d.sp.breath.k==='chomp'&&d.stage>=2?1.25:1),d.sp.el);}});
+    d.rig.mouthPos(_w);entCenter(t,_q);if(_q.distanceTo(_w)<1.3+d.S*1.0+(t.radius||0.4)+(d.isMount&&tgt?1.2+d.S*0.4:0))hitEnt(d,t,d.atk*(d.sp.breath.k==='chomp'&&d.stage>=2?1.25:1),d.sp.el);}});
   return true;}
 function castBreath(d,tgt){
   if(d.stage<2||d.cd.breath>0||d.st.stun>0)return false;const sp=d.sp,k=sp.breath.k,el=sp.el,pw=d.atk,col=spCol(sp);
@@ -2484,6 +2833,7 @@ function updateCombatFX(dt){
   // 継続エフェクト
   game.effects=game.effects.filter(e=>{e.t+=dt;const d=e.d;if(d.dead&&e.type!=='nova')return false;
     if(e.type==='cone'||e.type==='beam'){const m=d.rig.mouthPos(new THREE.Vector3());const dir=d.rig.headDir(new THREE.Vector3());
+      if(d.isMount&&game.assist&&game.assist.tgt&&!game.assist.tgt.dead){const a=entCenter(game.assist.tgt,new THREE.Vector3()).sub(m).normalize();if(a.dot(dir)>-0.3)dir.copy(a);}
       if(e.type==='cone'){for(let i=0;i<4;i++){const sp=12+Math.random()*6;const vx=dir.x*sp+rnd(-2.5,2.5),vy=dir.y*sp+rnd(-2,2),vz=dir.z*sp+rnd(-2.5,2.5);
           fxs.spawn(m.x,m.y,m.z,vx,vy,vz,e.range/sp*0.9,0.25*d.S,e.col,-1,0.6,2.5);}}
       else{for(let i=0;i<6;i++){const u=Math.random()*e.range;fxs.spawn(m.x+dir.x*u,m.y+dir.y*u,m.z+dir.z*u,rnd(-0.5,0.5),rnd(-0.5,0.5),rnd(-0.5,0.5),0.15,0.3*d.S,e.col);}}
@@ -2493,7 +2843,7 @@ function updateCombatFX(dt){
           for(let i=0;i<3;i++){const sp=12+Math.random()*5;fxs.spawn(mk.x,mk.y,mk.z,dk.x*sp+rnd(-2,2),dk.y*sp+rnd(-2,2),dk.z*sp+rnd(-2,2),0.5,0.22*d.S,e.col,-1,0.6,2);}}}
       d.anim.breath=Math.max(d.anim.breath,0.8);return e.t<e.dur;}
     if(e.type==='spray'){e.tick-=dt;if(e.tick<=0){e.tick=0.09;const m=d.rig.mouthPos(new THREE.Vector3());let dir;
-        if(e.tgt&&!e.tgt.dead){entCenter(e.tgt,_q);dir=_q.sub(m).normalize();}else dir=d.rig.headDir(new THREE.Vector3());
+        const at=e.tgt&&!e.tgt.dead?e.tgt:(d.isMount&&game.assist&&game.assist.tgt&&!game.assist.tgt.dead?game.assist.tgt:null);if(at){entCenter(at,_q);dir=_q.sub(m).normalize();}else dir=d.rig.headDir(new THREE.Vector3());
         spawnProj(d,m.x,m.y,m.z,dir.x*18+rnd(-2,2),dir.y*18+rnd(-1,2),dir.z*18+rnd(-2,2),e.el,e.pw*0.4,e.col,{size:0.18*d.S,life:1});}
       d.anim.breath=Math.max(d.anim.breath,0.6);return e.t<e.dur;}
     if(e.type==='nova'){const r=e.r*Math.min(1,e.t/e.dur*1.5);for(let i=0;i<10;i++){const a=Math.random()*TAU;fxs.spawn(e.x+Math.cos(a)*r,e.y-0.3+Math.random(),e.z+Math.sin(a)*r,Math.cos(a)*2,1,Math.sin(a)*2,0.4,0.35,e.col);}
@@ -2522,7 +2872,7 @@ function fight(d,tgt,dt){
   if(dist>reach*0.85)d.drive(dx,dz,1,dt,d.team==='ally'?1.15:1);
   else{d.drive(dx,dz,Math.abs(angDiff(ty,d.yaw))>0.4?0.25:0,dt);if(Math.abs(angDiff(ty,d.yaw))<0.7)tryBite(d,tgt);}
 }
-function aiWild(d,dt){if(d.mirage)return mirageAI(d,dt);const A=d.ai;const P=player.mount||player;
+function aiWild(d,dt){if(d.mirage)return mirageAI(d,dt);if(d.sp.camo)return camoAI(d,dt);const A=d.ai;const P=player.mount||player;
   if(d.weak>0){d.weak-=dt;d.drive(0,0,0,dt);d.flying=false;if(d.weak<=0){d.hp=Math.max(d.hp,d.maxHp*0.4);A.state=d.sp.aggro?'chase':'flee';A.flee=5;A.target=P;}return;}
   A.think-=dt;const pp=P.isPlayer?P.pos:P.pos;const dp=Math.hypot(pp.x-d.pos.x,pp.z-d.pos.z);
   const nearBase=Math.hypot(pp.x-BASE.x,pp.z-BASE.z)<26;
@@ -2533,7 +2883,7 @@ function aiWild(d,dt){if(d.mirage)return mirageAI(d,dt);const A=d.ai;const P=pla
     const dx=A.tx-d.pos.x,dz=A.tz-d.pos.z;const dist=Math.hypot(dx,dz);d.drive(dx,dz,dist>1.5?(d.flying?0.6:0.42):0,dt);d.look=Math.sin(game.t*0.5+d.frame)*0.5;
     if(d.sp.aggro===2&&dp<14&&!nearBase&&!player.dead){A.state='chase';A.target=P;d.anim.roar=1;}
   }else if(A.state==='chase'){let t=A.target;if(t&&t.isPlayer&&t.mount)t=t.mount;if(t===player&&player.mount)t=player.mount;
-    if(!t||t.dead||(t.isMount&&!player.mount)){t=P;A.target=P;}
+    if(!t||t.dead||t.gone||(t.isMount&&!player.mount)||(t.team==='ally'&&!t.isPlayer&&!game.allies.includes(t))){t=P;A.target=P;}
     entCenter(t,_q);const dist=_q.distanceTo(d.pos);
     if(dist>45||nearBase&&(t===P)||player.dead){A.state='wander';A.target=null;d.flying=false;return;}fight(d,t,dt);}
   else if(A.state==='flee'){A.flee-=dt;const t=A.target||P;const dx=d.pos.x-t.pos.x,dz=d.pos.z-t.pos.z;d.drive(dx,dz,0.75,dt);if(d.canFly()&&!d.sp.float&&d.stage>=2){d.flying=true;d.flyH=10;}
@@ -2564,7 +2914,7 @@ function spawnWild(){const P=player.mount||player;const lim=S.opt.wildMax;if(gam
     let tot=0;list.forEach(s=>tot+=s.w*(s.when&&s.when!=='any'||s.near?1.6:1));let rr=Math.random()*tot;let sp=list[0];for(const s of list){rr-=s.w*(s.when&&s.when!=='any'||s.near?1.6:1);if(rr<=0){sp=s;break;}}
     if(sp.near){const hst=nearHost(sp,x,z);x=hst.pos.x+rnd(-8,8);z=hst.pos.z+rnd(-8,8);if(!inWorld(x,z))continue;}
     if(b==='sky'&&skySea(x,z)&&!sp.fly)continue;if(b==='cave'&&H(x,z)>12)continue;
-    const h=H(x,z);if(h<-0.5&&!sp.swim)continue;if(lavaAt(x,z)&&sp.el!=='fire')continue;if(sp.plan==='sea'&&h>-0.5&&Math.random()<0.7)continue;
+    const h=H(x,z);if(h<-0.5&&!sp.swim)continue;if(sp.deepOnly&&h>-1.3-sp.depth)continue;if(lavaAt(x,z)&&sp.el!=='fire')continue;if(sp.plan==='sea'&&h>-0.5&&Math.random()<0.7)continue;
     const L=BIOMES[b].lv;let lv=rint(L[0],L[1]);if(sp.tier>=4)lv+=4;if(sp.tier>=5)lv+=6;
     const d=new Dragon(sp.id,lv,{x,z,team:'wild'});game.wild.push(d);
     if(Math.random()<0.25&&lv>=6&&sp.tier<=3){const bb=new Dragon(sp.id,rint(1,4),{x:x+2,z:z+2,team:'wild'});bb.ai.home=d.ai.home;game.wild.push(bb);}
@@ -2647,7 +2997,7 @@ const FT=[];
 function floatText(p,txt,color='#fff',size=1){const el=document.createElement('div');el.className='ft';el.textContent=txt;el.style.color=color;el.style.fontSize=(13*size)+'px';
   $('tags').appendChild(el);FT.push({el,p:p.clone(),t:1.1});if(FT.length>18){const o=FT.shift();o.el.remove();}}
 function updateFloat(dt){for(let i=FT.length-1;i>=0;i--){const f=FT[i];f.t-=dt;f.p.y+=dt*1.2;if(f.t<=0||S.opt.hideUI){f.el.remove();FT.splice(i,1);continue;}
-  _v.copy(f.p).project(camera);if(_v.z>1){f.el.style.display='none';continue;}f.el.style.display='';
+  _v.copy(f.p);_v.y-=curveDrop(_v);_v.project(camera);if(_v.z>1){f.el.style.display='none';continue;}f.el.style.display='';
   f.el.style.transform=`translate(${(_v.x*0.5+0.5)*innerWidth}px,${(-_v.y*0.5+0.5)*innerHeight}px) translate(-50%,-50%)`;f.el.style.opacity=Math.min(1,f.t*2);}}
 let toastQ=[],toastT=0;
 function toast(msg,dur=2.6){toastQ.push({msg,dur});if(toastQ.length>4)toastQ.shift();}
@@ -2664,11 +3014,11 @@ function setupInput(){
       else if(!pinch){const a=camTouch;pinch={id2:t.identifier,d:Math.hypot(t.clientX-a.x,t.clientY-a.y),dist:game.camDist};}}
     e.preventDefault();};
   const onMove=e=>{if(panelOpen)return;for(const t of e.changedTouches){
-      if(t.identifier===joyId){let dx=t.clientX-joyO.x,dy=t.clientY-joyO.y;const l=Math.hypot(dx,dy),mx=50;if(l>mx){dx*=mx/l;dy*=mx/l;}knob.style.transform=`translate(${dx}px,${dy}px)`;INP.jx=dx/mx;INP.jy=-dy/mx;INP.run=l>mx*0.98;}
+      if(t.identifier===joyId){let dx=t.clientX-joyO.x,dy=t.clientY-joyO.y;const l=Math.hypot(dx,dy),mx=50;if(l>mx){dx*=mx/l;dy*=mx/l;}knob.style.transform=`translate(${dx}px,${dy}px)`;INP.jx=dx/mx;INP.jy=-dy/mx;INP.run=l>mx*1.4;knob.classList.toggle('run',INP.run);}
       else if(camTouch&&t.identifier===camTouch.id){if(pinch)continue;game.camYaw-=(t.clientX-camTouch.x)*0.008;game.camPitch=clamp(game.camPitch+(t.clientY-camTouch.y)*0.004,0.28,1.3);camTouch.x=t.clientX;camTouch.y=t.clientY;}
       else if(pinch&&t.identifier===pinch.id2){const d=Math.hypot(t.clientX-camTouch.x,t.clientY-camTouch.y);game.camDist=clamp(pinch.dist*pinch.d/Math.max(20,d),7,48);}}
     e.preventDefault();};
-  const onEnd=e=>{for(const t of e.changedTouches){if(t.identifier===joyId){joyId=null;INP.jx=INP.jy=0;INP.run=false;base.style.display='none';}
+  const onEnd=e=>{for(const t of e.changedTouches){if(t.identifier===joyId){joyId=null;INP.jx=INP.jy=0;INP.run=false;knob.classList.remove('run');base.style.display='none';}
       if(camTouch&&t.identifier===camTouch.id){camTouch=null;pinch=null;}if(pinch&&t.identifier===pinch.id2)pinch=null;}};
   document.addEventListener('touchstart',onStart,{passive:false});document.addEventListener('touchmove',onMove,{passive:false});
   document.addEventListener('touchend',onEnd);document.addEventListener('touchcancel',onEnd);
@@ -2678,13 +3028,13 @@ function setupInput(){
   addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;INP.keys[e.code]=true;const k=e.code;
     if(k==='Escape'){if(panelOpen)closePanel();else openPanel('slime');}
     if(panelOpen)return;
-    if(k==='Space'){e.preventDefault();actJump();}if(k==='KeyJ'||k==='KeyK')actAttack();if(k==='KeyE'||k==='KeyF')actInteract();if(k==='KeyQ'||k==='KeyL')actSkill();
+    if(k==='Space'){e.preventDefault();actJump();}if(k==='KeyJ'||k==='KeyK')actAttack();if((k==='KeyE'||k==='KeyF')&&!e.repeat)intDown();if(k==='KeyQ'||k==='KeyL')actSkill();
     if(k==='KeyR')actRide();if(k==='KeyH')toggleUI();if(k==='KeyM'||k==='Tab'){e.preventDefault();openPanel('slime');}});
-  addEventListener('keyup',e=>{INP.keys[e.code]=false;});
+  addEventListener('keyup',e=>{INP.keys[e.code]=false;if(e.code==='KeyE'||e.code==='KeyF')intUp();});
   const hold=(id,fn,rep)=>{const b=$(id);let iv=null;const st=e=>{e.preventDefault();e.stopPropagation();b.classList.add('on');fn(true);if(rep)iv=setInterval(()=>fn(true),120);};
-    const en=e=>{b.classList.remove('on');if(iv){clearInterval(iv);iv=null;}if(rep)fn(false);};
+    const en=e=>{b.classList.remove('on');if(iv){clearInterval(iv);iv=null;}fn(false);};
     b.addEventListener('touchstart',st,{passive:false});b.addEventListener('mousedown',st);b.addEventListener('touchend',en);b.addEventListener('mouseup',en);b.addEventListener('mouseleave',en);};
-  hold('bAtk',d=>{if(d)actAttack();},true);hold('bInt',d=>{if(d)actInteract();});hold('bSkill',d=>{if(d)actSkill();});hold('bJump',d=>{if(d)actJump();});
+  hold('bAtk',d=>{if(d)actAttack();},true);hold('bInt',d=>{if(d)intDown();else intUp();});hold('bSkill',d=>{if(d)actSkill();});hold('bJump',d=>{if(d)actJump();});
   hold('bRide',d=>{if(d)actRide();});hold('bUp',d=>{INP.up=d;},true);hold('bDn',d=>{INP.down=d;},true);
   ['bUp','bDn'].forEach(id=>{const b=$(id);const off=()=>{if(id==='bUp')INP.up=false;else INP.down=false;};b.addEventListener('touchend',off);b.addEventListener('mouseup',off);b.addEventListener('mouseleave',off);});
   $('btnEye').onclick=toggleUI;$('eyeRestore').onclick=toggleUI;
@@ -2766,18 +3116,18 @@ function updateHUD(dt){
   }
   // ターゲット表示
   const P=player.mount||player;const shown=[];if(game.focus&&!game.focus.dead)shown.push(game.focus);
-  for(const d of game.wild){if(shown.length>=3)break;if(d.dead||shown.includes(d))continue;if(d.weak>0||d.ai.state==='chase'){if(d.pos.distanceTo(P.pos)<30)shown.push(d);}}
+  for(const d of game.wild){if(shown.length>=3)break;if((d.dead&&!d.corpse)||shown.includes(d))continue;if(d.weak>0||d.corpse||d.ai.state==='chase'){if(d.pos.distanceTo(P.pos)<30)shown.push(d);}}
   while(tagEls.length<3){const e=document.createElement('div');e.className='tag';$('tags').appendChild(e);tagEls.push(e);}
-  tagEls.forEach((e,i)=>{const d=shown[i];if(!d||uiHidden){e.style.display='none';return;}d.rig.heads[0].getWorldPosition(_v);_v.y+=0.9+d.S*0.5;_v.project(camera);
+  tagEls.forEach((e,i)=>{const d=shown[i];if(!d||uiHidden){e.style.display='none';return;}d.rig.heads[0].getWorldPosition(_v);_v.y+=0.9+d.S*0.5;_v.y-=curveDrop(_v);_v.project(camera);
     if(_v.z>1){e.style.display='none';return;}e.style.display='block';
     const k=d.sp.id+d.lv+(d.weak>0)+Math.round(d.hp/d.maxHp*40);if(e._k!==k){e._k=k;
-      e.innerHTML=`<div class="tn">${EL[d.sp.el].i} ${d.sp.name} <b>Lv${d.lv}</b> <small>${STAGES[d.stage].n}</small></div><div class="bg"><div class="fill ${d.weak>0?'weak':'hp'}" style="width:${d.hp/d.maxHp*100}%"></div></div>${d.weak>0?devourTag(d):''}`;}
+      e.innerHTML=`<div class="tn">${EL[d.sp.el].i} ${d.sp.name} <b>Lv${d.lv}</b> <small>${STAGES[d.stage].n}</small></div><div class="bg"><div class="fill ${d.weak>0?'weak':'hp'}" style="width:${d.hp/d.maxHp*100}%"></div></div>${d.weak>0||d.corpse?devourTag(d):''}`;}
     e.style.transform=`translate(${(_v.x*0.5+0.5)*innerWidth}px,${(-_v.y*0.5+0.5)*innerHeight}px) translate(-50%,-100%)`;});
   // ミニマップ
   miniT-=dt;if(miniT<=0&&!uiHidden){miniT=0.15;const c=$('mini'),g=c.getContext('2d');const W=c.width;g.clearRect(0,0,W,W);const zf=zoneFrame(P.pos.x);g.drawImage(zf.img,0,0,W,W);
     const tp=(x,z)=>[(x-zf.x0)/zf.s*W,(z-zf.z0)/zf.s*W];g.font='bold 11px sans-serif';for(const mk of zf.marks){const [mx,mz]=tp(mk[0],mk[1]);g.drawImage(iconCanvas(EMO2IC[mk[2]]||'medal'),mx-8,mz-8,16,16);}
     let [bx,bz]=tp(BASE.x,BASE.z);g.fillStyle='#fff';g.font='bold 11px sans-serif';g.drawImage(iconCanvas('tent'),bx-8,bz-8,16,16);
-    for(const d of game.wild){if(d.dead)continue;const [x,z]=tp(d.pos.x,d.pos.z);g.fillStyle=d.weak>0?'#ff8ad8':d.ai.state==='chase'?'#ff3030':'#ffb040';g.fillRect(x-1.5,z-1.5,3,3);}
+    for(const d of game.wild){if(d.dead||d.camoHidden)continue;const [x,z]=tp(d.pos.x,d.pos.z);g.fillStyle=d.weak>0?'#ff8ad8':d.ai.state==='chase'?'#ff3030':'#ffb040';g.fillRect(x-1.5,z-1.5,3,3);}
     for(const d of game.allies){if(d.dead)continue;const [x,z]=tp(d.pos.x,d.pos.z);g.fillStyle='#50ff80';g.fillRect(x-1.5,z-1.5,3,3);}
     const [px,pz]=tp(P.pos.x,P.pos.z);g.save();g.translate(px,pz);g.rotate(-P.yaw+Math.PI);g.fillStyle='#fff';g.strokeStyle='#000';g.beginPath();g.moveTo(0,-6);g.lineTo(4,4);g.lineTo(-4,4);g.closePath();g.fill();g.stroke();g.restore();
     g.strokeStyle='rgba(255,255,255,0.5)';g.strokeRect(0.5,0.5,W-1,W-1);}
@@ -2912,7 +3262,7 @@ function panelAct(act,v,w){
     case 'bgm':S.opt.bgm=!S.opt.bgm;if(S.opt.bgm)bgmStart();else bgmStop();break;
     case 'vol':S.opt.vol=S.opt.vol<=0.25?0.5:S.opt.vol<=0.5?0.8:0.25;bgmVol();break;
     case 'save':saveGame();toast('保存しました');break;
-    case 'reset':if(confirm('本当にデータを初期化しますか？')){localStorage.removeItem(SAVE_KEY);location.reload();}return;
+    case 'reset':resetDialog(1);return;
   }
   renderPanel();}
 
@@ -2939,15 +3289,15 @@ function pvUpdate(dt){if(!PV.active)return;PV.t+=dt;const st=PV.st;
     const spd=mode==='walk'?(sp.spd*0.55*G.S):mode==='fly'?sp.spd*0.8*G.S:(sp.serp?sp.spd*0.3*G.S:0);
     if(spd>0){st.a+=spd/R*dt;st.x=Math.cos(st.a)*R;st.z=Math.sin(st.a)*R;st.yaw=Math.atan2(-Math.sin(st.a),Math.cos(st.a));}
     st.speed=lerp(st.speed,spd,1-Math.exp(-dt*3));st.fb=lerp(st.fb,fl?1:0,1-Math.exp(-dt*2));
-    const alt=mode==='fly'?2+G.S*1.5:(sp.float?hoverOf(sp,r.st):0);
+    const alt=mode==='fly'?2+G.S*1.5:(sp.float?hoverOf(sp,r.st):sp.squidTail?G.S*0.9:0);
     const bite=mode==='attack'?Math.max(0,Math.sin(PV.t*3.5))*(Math.sin(PV.t*1.2)>0?1:0):0;const roar=mode==='attack'&&Math.sin(PV.t*1.2)<=0?Math.max(0,Math.sin(PV.t*1.2+Math.PI))*0.9:0;
     const br=mode==='breath'?(Math.sin(PV.t*0.9)>-0.3?1:0):0;
-    r.update(dt,{x:st.x,y:alt*st.fb,z:st.z,yaw:st.yaw,speed:st.speed,vy:0,fb:st.fb,ground:()=>0,bite,breath:br,roar,look:mode==='idle'?Math.sin(PV.t*0.6)*0.6:0,maxSpd:sp.spd});
+    r.update(dt,{x:st.x,y:alt*(sp.squidTail?1:st.fb),z:st.z,yaw:st.yaw,speed:st.speed,vy:0,fb:st.fb,ground:()=>0,bite,breath:br,roar,look:mode==='idle'?Math.sin(PV.t*0.6)*0.6:0,maxSpd:sp.spd});
     if(br>0&&PV.t%0.05<dt*1.5){const m=r.mouthPos(new THREE.Vector3()),d=r.headDir(new THREE.Vector3());const c=spCol(sp);
       for(let k=0;k<r.heads.length;k++){const mk=r.mouthPos(new THREE.Vector3(),k),dk=r.headDir(new THREE.Vector3(),k);
         for(let i=0;i<3;i++){const s=6+Math.random()*4;PV.fx.spawn(mk.x,mk.y,mk.z,dk.x*s+rnd(-1,1),dk.y*s+rnd(-1,1),dk.z*s+rnd(-1,1),0.6,0.15*G.S,c,-0.5,0.5,2);}}}
     PV.fx.update(dt);
-    const Vm=r.V[Math.floor(r.V.length*(G.serp?0.4:0.25))];const wide=spd>0&&(mode==='walk'||mode==='fly');const cx=wide?0:(st.x+Vm.x)/2,cz=wide?0:(st.z+Vm.z)/2;const D=wide?R*2.2+2:G.len*(G.serp?0.75:0.95)+1.0;const ty=wide?alt*0.5:(G.serp?Vm.y*0.8:(G.hipH+alt*st.fb)*0.8+G.S*0.3);
+    const Vm=r.V[Math.floor(r.V.length*(G.serp?0.4:0.25))];const wide=spd>0&&(mode==='walk'||mode==='fly');const cx=wide?0:(st.x+Vm.x)/2,cz=wide?0:(st.z+Vm.z)/2;const D=wide?R*2.2+2:G.len*(G.serp?0.75:0.95)+1.0;const ty=wide?alt*0.5:(G.serp?Vm.y*0.8:(G.hipH+alt*(sp.squidTail?1:st.fb))*0.8+G.S*0.3);
     PV.camera.position.set(cx+Math.sin(PV.ang)*D,ty+D*0.45,cz+Math.cos(PV.ang)*D);PV.camera.lookAt(cx,ty,cz);}
   PV.renderer.render(PV.scene,PV.camera);}
 
@@ -2956,7 +3306,7 @@ const SAVE_KEY='dragonRealm_slime_v2';
 function newSave(){return {v:2,pos:[BASE.x+2,BASE.z+5],hp:88,st:100,hunger:100,inv:{berry:3},store:{},pl:{lv:1,xp:0,atkB:0,defB:0,hpB:0,capB:0,stB:0,dig:1,inc:0},stomach:[],hatch:[],dex:{},gm:false,water:0,forms:{},lastForm:null,eggs:[],weapon:'fist',saddle:false,weaponOwn:{fist:1},gearOwn:{},eq:{head:null,body:null,feet:null,acc:null},
   dragons:[],party:[],ride:null,incub:[],seen:{grassdrake:1},owned:{},nextUid:1,day:0.32,flags:{},opt:{shadow:!/iPhone|iPod|Android/.test(navigator.userAgent),wildMax:10,res:1,hideUI:false,bgm:true,vol:0.5}};}
 function loadGame(){try{const s=JSON.parse(localStorage.getItem(SAVE_KEY));if(s&&s.v===2){const d=newSave();const o=Object.assign(d,s);o.opt=Object.assign(d.opt,s.opt||{});o.inv=Object.assign({},s.inv||{});o.flags=s.flags||{};o.eq=Object.assign(d.eq,s.eq||{});o.weaponOwn=Object.assign({fist:1},s.weaponOwn||{});o.weaponOwn[o.weapon]=1;o.gearOwn=s.gearOwn||{};o.pl=Object.assign(d.pl,s.pl||{});o.store=s.store||{};o.stomach=s.stomach||[];o.forms=s.forms||{};o.hatch=s.hatch||[];o.dex=s.dex||Object.assign({},s.forms||{});o.gm=!!s.gm;return o;}}catch(e){}return null;}
-function saveGame(){if(!S||!player)return;const P=player.mount||player;S.pos=[P.pos.x,P.pos.z];
+function saveGame(){if(!S||!player||window.RESETTING)return;const P=player.mount||player;S.pos=[P.pos.x,P.pos.z];
   for(const a of game.allies)if(a.data){a.data.hp=a.dead?0:Math.round(a.hp);a.data.lv=a.lv;}
   try{localStorage.setItem(SAVE_KEY,JSON.stringify(S));}catch(e){}}
 function applyShadow(){renderer.shadowMap.enabled=S.opt.shadow;sun.castShadow=S.opt.shadow;
@@ -2969,7 +3319,9 @@ function onResize(){const pr=clamp(Math.min(devicePixelRatio,1.5)*(S?S.opt.res:1
 // =====================================================================
 const ATM={t:0,sky:null,skyU:null,motes:null,isl:null,swayU:{value:0},waterU:{value:0},top:new THREE.Color(),hor:new THREE.Color(),moonDir:new THREE.Vector3(),sunSky:new THREE.Vector3(),idle:0};
 const BIOME_POEM={meadow:'風と花びらがめぐる、はじまりの丘',forest:'木漏れ日と胞子の灯りが眠る森',swamp:'霧の向こうで、鬼火が手招きする',lake:'空を映す、静かな碧の水鏡',
-  desert:'黄昏色の砂が、古い歌を運ぶ',volcano:'大地の鼓動が、紅く灯る',snow:'音のない白と、オーロラの峰',ruins:'雷鳴にまどろむ、いにしえの深淵'};
+  desert:'黄昏色の砂が、古い歌を運ぶ',volcano:'大地の鼓動が、紅く灯る',snow:'音のない白と、オーロラの峰',ruins:'雷鳴にまどろむ、いにしえの深淵',
+  flowerhills:'丘いちめんに、花の波がゆれる',autumn:'紅い葉が、ひらひらと時を数える',sakura:'薄紅の霞に、花びらが舞う谷',beach:'白い砂と珊瑚が、波にきらめく',
+  mushroom:'見上げるほどのキノコが、ほのかに灯る',canyon:'赤い岩肌に、風が古い道を刻む',crystal:'水晶の柱が、光をうたう渓谷',tundra:'凍てつく風だけが、どこまでも続く',ocean:'深い青の向こうで、大きな影がゆらめく'};
 // ---- 揺れる草木のマテリアル ----
 function swayMat(amp,base){const m=new THREE.MeshLambertMaterial({vertexColors:true});
   m.onBeforeCompile=sh=>{sh.uniforms.uTime=ATM.swayU;sh.vertexShader='uniform float uTime;\n'+sh.vertexShader.replace('#include <begin_vertex>',
@@ -3064,24 +3416,31 @@ function buildIslands(scene){const gb=new GB();
     gb.add(P_sphere(6,4),{s:[1.7,1.5,1.7],t:[Math.cos(a)*r,3.4,Math.sin(a)*r],c:k===1?0xf0a8c8:(k?0x7ad06a:0x5ab85a)});}
   for(let k=0;k<4;k++){const a=k*1.6+0.4;gb.along(P_bicone(4),[Math.cos(a)*4.6,-1.5-k*0.8,Math.sin(a)*4.6],[Math.cos(a)*0.3,-1,Math.sin(a)*0.3],2.2,0.35,0xbfe8ff,true);}
   gb.add(P_box(),{s:[1.0,16,0.25],t:[5.6,-8,0],c:0xd8f4ff,glow:true});gb.add(P_box(),{s:[1.6,0.6,1.6],t:[5.6,0.45,0],c:0xd8f4ff,glow:true});
-  const n=16,R=mulberry(4242);const arr=[];for(let i=0;i<n;i++){const a=i/n*TAU+R()*0.3,d=90+R()*150;arr.push({x:Math.cos(a)*d,z:Math.sin(a)*d,y:62+R()*38,s:0.7+R()*1.6,r:R()*TAU,ph:R()*6});}
+  const n=34,R=mulberry(4242);const arr=[];for(let i=0;i<n;i++){const a=i/n*TAU+R()*0.3,d=90+R()*360;arr.push({x:Math.cos(a)*d,z:Math.sin(a)*d,y:62+R()*38,s:0.7+R()*1.6,r:R()*TAU,ph:R()*6});}
   const im=new THREE.InstancedMesh(gb.geo(),new THREE.MeshLambertMaterial({vertexColors:true}),n),ig=new THREE.InstancedMesh(gb.glowGeo(),new THREE.MeshBasicMaterial({vertexColors:true,transparent:true,opacity:0.6,blending:THREE.AdditiveBlending,depthWrite:false}),n);
   whiteColors(im);whiteColors(ig);im.frustumCulled=ig.frustumCulled=false;im.instanceMatrix.setUsage(THREE.DynamicDrawUsage);ig.instanceMatrix.setUsage(THREE.DynamicDrawUsage);scene.add(im);scene.add(ig);ATM.isl={im,ig,arr,d:new THREE.Object3D()};}
 function updateIslands(t){const I=ATM.isl;if(!I)return;for(let i=0;i<I.arr.length;i++){const o=I.arr[i];I.d.position.set(o.x,o.y+Math.sin(t*0.25+o.ph)*1.6,o.z);I.d.rotation.set(0,o.r+t*0.01,0);I.d.scale.setScalar(o.s);I.d.updateMatrix();
   I.im.setMatrixAt(i,I.d.matrix);I.ig.setMatrixAt(i,I.d.matrix);}I.im.instanceMatrix.needsUpdate=true;I.ig.instanceMatrix.needsUpdate=true;}
 // ---- 水面（ゆるやかな波ときらめき） ----
-function buildWater(scene){const g=new THREE.PlaneGeometry(WORLD+200,WORLD+200,90,90);g.rotateX(-Math.PI/2);
+function buildWater(scene){const g=new THREE.PlaneGeometry(720,720,96,96);g.rotateX(-Math.PI/2);
   const m=new THREE.MeshPhongMaterial({color:0x58c0e0,specular:0xfff2e0,shininess:70,transparent:true,opacity:0.74,flatShading:true,depthWrite:false});
   m.onBeforeCompile=sh=>{sh.uniforms.uTime=ATM.waterU;sh.vertexShader='uniform float uTime;\n'+sh.vertexShader.replace('#include <begin_vertex>',
 `#include <begin_vertex>
-  transformed.y+=sin(position.x*0.16+uTime*0.9)*0.13+cos(position.z*0.19+uTime*1.15)*0.11+sin((position.x+position.z)*0.37+uTime*1.7)*0.05;`);};
+  vec4 wW=modelMatrix*vec4(position,1.0);
+  transformed.y+=sin(wW.x*0.16+uTime*0.9)*0.13+cos(wW.z*0.19+uTime*1.15)*0.11+sin((wW.x+wW.z)*0.37+uTime*1.7)*0.05;`);};
   m.customProgramCacheKey=()=>'water';
-  const w=new THREE.Mesh(g,m);w.position.y=WATER_Y-0.12;w.renderOrder=2;w.receiveShadow=false;scene.add(w);return w;}
+  const w=new THREE.Mesh(g,m);w.position.y=WATER_Y-0.12;w.renderOrder=2;w.receiveShadow=false;w.frustumCulled=false;scene.add(w);
+  // 海の底（外洋の深い青）。水面と一緒にカメラについていく
+  const sb=new THREE.PlaneGeometry(720,720,24,24);sb.rotateX(-Math.PI/2);const bed=new THREE.Mesh(sb,new THREE.MeshLambertMaterial({color:0x1e5a78}));bed.position.y=-6.5;bed.frustumCulled=false;scene.add(bed);w.userData.bed=bed;return w;}
+function followSea(){if(!waterMesh)return;const x=Math.round(_camT.x/24)*24,z=Math.round(_camT.z/24)*24;const sky=zoneOf(_camT.x)!=='surface';
+  waterMesh.position.x=x;waterMesh.position.z=z;waterMesh.visible=!sky;const b=waterMesh.userData.bed;if(b){b.position.x=x;b.position.z=z;b.visible=!sky;}}
+const CURV=0;
+function curveDrop(v){return 0;}
 // ---- 時間帯ごとの空気の色 ----
 const PAL={dayTop:new THREE.Color(0x6aa6ea),dayHor:new THREE.Color(0xeef2fa),eveTop:new THREE.Color(0x4a4aa6),eveHor:new THREE.Color(0xffa585),
   dawnTop:new THREE.Color(0x7a86d6),dawnHor:new THREE.Color(0xffc8c6),nightTop:new THREE.Color(0x070a26),nightHor:new THREE.Color(0x272a62)};
 const _c1=new THREE.Color(),_c2=new THREE.Color(),_c3=new THREE.Color();
-function atmosphere(dt){ATM.t+=dt;const t=ATM.t;ATM.swayU.value=t;ATM.waterU.value=t;
+function atmosphere(dt){followSea();ATM.t+=dt;const t=ATM.t;ATM.swayU.value=t;ATM.waterU.value=t;
   const a=S.day*TAU,el=Math.sin(a),eve=Math.cos(a)<0;
   const day=smooth(-0.12,0.28,el),night=1-smooth(-0.28,0.02,el),dusk=Math.exp(-Math.pow(el/0.24,2));
   const bsky=_c3.set(BIOMES[game.lastBiome||'meadow'].sky);
@@ -3197,7 +3556,7 @@ class Slime{
     this.yaw=Math.PI;this.vy=0;this.air=false;this.speed=0;this.mount=null;this.atkT=0;this.atkCd=0;this.dead=0;this.hitT=0;this.gather=0;
     this.q=1;this.qv=0;this.sz=1;this.az=1;this.lean=0;this.wob=0.02;this.t=0;this.landT=0;this.devour=null;this.shootT=0;this.mouth=0;this.blink=3;this.eatT=0;this.hitDone=false;
     this.build();}
-  base(){return 0.55+Math.min(S.pl.lv,50)*0.012;}
+  base(){return 0.2+Math.min(S.pl.lv,50)*0.016;}
   build(){const g=new THREE.Group();this.g=g;scene.add(g);const b=new THREE.Group();this.bg=b;g.add(b);
     this.U={uTime:{value:0},uWob:{value:0.02}};
     const mat=new THREE.MeshPhongMaterial({color:0x58c8ff,emissive:0x0c3c70,specular:0xffffff,shininess:120,transparent:true,opacity:0.8,depthWrite:false});
@@ -3245,6 +3604,7 @@ class Slime{
     this.g.visible=true;this.blob.visible=true;
     this.atkCd-=dt;this.hitT-=dt;this.landT-=dt;this.shootT-=dt;this.eatT-=dt;
     if(this.devour){this.updDevour(dt);this.apply(dt);return;}
+    if(this.sz!==1)this.sz=this.sz<1?Math.min(1,this.sz+dt*1.4):Math.max(1,this.sz-dt*2);// 復活時などに元の大きさへ戻す
     const gy=slimeGround(this.pos.x,this.pos.z);const water=H(this.pos.x,this.pos.z)<WATER_Y-0.3;
     // 体当たり
     let qt=1+Math.sin(this.t*2.2)*0.035,azT=1;
@@ -3257,8 +3617,8 @@ class Slime{
     const want=inp.mag>0.05&&this.atkT<=0&&this.eatT<=0;
     const run=inp.runOn&&S.st>3;
     if(want)this.yaw=lerpAngle(this.yaw,Math.atan2(inp.dx,inp.dz),1-Math.exp(-dt*12));
-    if(!this.air&&want&&this.landT<=0)this.hop(water?0.16:run?0.34:0.26);
-    {const sp=4.4*(run?1.35:1)*(water?0.72:1)*inp.mag;if(want||(this.big&&this.air))this.move(inp.dx*sp*dt,inp.dz*sp*dt);}
+    if(!this.air&&want&&this.landT<=0)this.hop((water?0.16:run?0.34:0.26)*clamp(0.45+this.base()*1.1,0.6,1));
+    {const sp=4.4*(run?1.95:1)*(water?0.72:1)*inp.mag;if(want||(this.big&&this.air))this.move(inp.dx*sp*dt,inp.dz*sp*dt);}
     if(this.air){
       this.vy-=GRAV*dt;this.pos.y+=this.vy*dt;qt=this.vy>0?1.18:0.96;
       const g2=slimeGround(this.pos.x,this.pos.z);
@@ -3302,6 +3662,8 @@ class Slime{
         this.food.visible=true;this.food.material.color.setHex(d.sp.col.b);this.food.scale.setScalar(0.9);this.food.position.set(0,0.42,0);}}
     else if(t<2.0){const p=(t-1.45)/0.55;const e=1+(Math.pow(p-1,3)+Math.pow(p-1,2))*1.6;this.sz=lerp(D.big,1,Math.min(1,p*1.2))*(1+Math.sin(p*Math.PI*3)*0.12*(1-p));this.U.uWob.value=0.09;
       if(Math.random()<dt*20){this.center(_v);fx.spawn(_v.x+rnd(-0.3,0.3),_v.y+0.6*this.sz,_v.z+rnd(-0.3,0.3),rnd(-0.3,0.3),rnd(1,2),rnd(-0.3,0.3),0.8,0.12,[0.7,0.95,1],-0.5,0.5);}}
+    else if(D.quick){this.sz=1;this.devour=null;const y=decompYield({sp:d.sp.id,stage:d.stage,rem:1,tot:1});const got=[];for(const [k,n] of Object.entries(y)){const g=addItem(k,n);if(g)got.push(ITEMS[k].i+'×'+g);}
+      S.hunger=Math.min(100,S.hunger+20);this.qv+=6;this.center(_v);fxs.burst(_v.x,_v.y,_v.z,24,spCol(d.sp),3.5,0.7,0.2,6);toast(`🔪 ${d.sp.name}をその場で分解した！ ${got.join(' ')||'（体内がいっぱいで入らなかった）'}`,3);saveGame();}
     else{this.sz=1;this.devour=null;const tot=Math.round((22+d.sp.tier*14+d.sp.size*5)*(1+d.stage*0.2)*1.8);
       S.stomach.push({sp:d.sp.id,lv:d.lv,stage:d.stage,rem:tot,tot});S.hunger=Math.min(100,S.hunger+35);this.qv+=6;
       toast(`🌀 ${d.sp.name}を消化中…（約${tot}秒で吸収できる）`,3);saveGame();}
@@ -3310,8 +3672,16 @@ class Slime{
 
 // ---- 捕食・食事 ----
 function devourCheck(d){if(d.lv>devourLimit())return {ok:false,msg:`Lv${d.lv-2}以上で捕食できる`};
-  if(S.stomach.length>=plSlots())return {ok:false,msg:'胃袋がいっぱい（消化を待とう）'};return {ok:true};}
-function attemptTame(d){if(d.team!=='wild'||d.dead||!(d.weak>0)||d.devouring||player.devour)return;const c=devourCheck(d);if(!c.ok){toast('🚫 '+c.msg);return;}player.startDevour(d);}
+  if(S.stomach.length>=plSlots())return {ok:false,full:true,msg:'胃袋がいっぱい（✋長押しで分解）'};return {ok:true};}
+const canDevour=d=>d.team==='wild'&&!d.devouring&&((d.weak>0&&!d.dead)||(d.corpse&&d.dead>0));
+function attemptTame(d){if(!canDevour(d)||player.devour)return;const c=devourCheck(d);if(!c.ok){toast(c.full?'🌀 胃袋がいっぱい！ ✋を長押しすると、その場で食べてすぐ分解できる':'🚫 '+c.msg,c.full?3:2);return;}player.startDevour(d);}
+// ---- ✋長押し：胃袋がいっぱいでも、その場で食べてすぐ分解 ----
+let intHolding=false,intHoldT=0;
+function intDown(){intHolding=true;intHoldT=0;actInteract();}
+function intUp(){intHolding=false;intHoldT=0;const b=$('bInt');if(b)b.style.setProperty('--hp','0');}
+function quickDecompTick(dt){const b=$('bInt');if(!intHolding||player.devour||player.dead){if(b&&intHoldT>0){intHoldT=0;b.style.setProperty('--hp','0');}return;}
+  const c=findContext();if(c.kind!=='tame'){intHoldT=0;b.style.setProperty('--hp','0');return;}const chk=devourCheck(c.d);if(!chk.full){return;}
+  intHoldT+=dt;b.style.setProperty('--hp',clamp(intHoldT/0.8,0,1).toFixed(3));if(intHoldT>=0.8){intHolding=false;intHoldT=0;b.style.setProperty('--hp','0');player.startDevour(c.d);player.devour.quick=true;}}
 function harvest(e){const D=ENV_DEFS[e.t];if(carried()>=plCap()){addItem('wood',0);toast('🫙 おなかがいっぱい！基地のコアにあずけよう');return;}
   e.o.hits--;player.eatT=0.35;player.qv-=4;player.U.uWob.value=0.07;
   fx.burst(e.o.x,e.o.y+0.6,e.o.z,6,e.t==='bush'?[0.4,0.3,0.8]:e.t.includes('rock')||e.t==='boulder'||e.t==='iron'?[0.6,0.6,0.6]:e.t==='crystal'?[0.6,0.9,1]:[0.5,0.4,0.25],3,0.5,0.15,8);
@@ -3328,33 +3698,36 @@ function takeEgg(n){const o=n.nest;if(!o.egg)return;if(S.stomach.length>=plSlots
   toast(`🥚 ${sp.name}の卵をまるのみ！（経験値少し）${incSlots()?'消化される前に💧タブで「孵化装置へ」移すと孵化できる':'コアで「体内孵化装置」を作ると、消化前の卵を孵化できる'}`,4.5);}
 // ---- 倒した時 ----
 function onDragonDown(d,att){
-  if(d.team==='wild'){d.dead=2.2;d.speed=0;d.flying=false;
+  if(d.team==='wild'){d.dead=35;d.corpse=true;d.weak=0;d.speed=0;d.flying=false;
     const xp=Math.round((10+d.lv*4)*(1+d.sp.tier*0.2));plGainXp(xp);
     const meat=addItem('meat',1+Math.round(d.S*1.6)+d.stage);let msg=`${d.sp.name}を倒した！（経験値+${xp}） 🍖×${meat}`;
     const sc=addItem('scale',1+(Math.random()<0.35+d.sp.tier*0.12?1:0)+(d.stage>=2?1:0)+(d.sp.tier>=3?1:0));if(sc)msg+=` 🐚×${sc}`;
     if(Math.random()<(d.sp.tier>=3?0.5:d.sp.tier>=2?0.2:0.05)){const cr=addItem('crystal',d.stage>=3?2:1);if(cr)msg+=' 💎×'+cr;}
-    toast(msg);if(game.focus===d)game.focus=null;}
-  else if(d.isMount){const id=d.sp.id,nm=d.sp.name;revert(true);delete S.forms[id];if(S.lastForm===id)S.lastForm=null;
+    toast(msg+'　✋で亡骸を捕食できる',3.5);}
+  else if(d.isMount){const id=d.sp.id,nm=d.sp.name;revert(true);delete S.forms[id];if(S.formHp)delete S.formHp[id];if(S.lastForm===id)S.lastForm=null;
     toast(`💔 ${nm}の姿で倒されてしまった…この変身は失われた（もう一度捕食すれば取り戻せる）`,4.5);saveGame();}}
 // ---- 変身 ----
 function transform(spId){if(player.mount||player.devour||player.dead)return;if(!S.forms[spId]){toast('まだ捕食していないドラゴン');return;}
   if(S.st<30){toast('変身にはスタミナ30以上が必要');return;}
   const sp=SP[spId];const d=new Dragon(spId,S.pl.lv,{x:player.pos.x,z:player.pos.z,team:'ally',yaw:player.yaw});
-  d.atk+=plATK()*0.6;d.def+=plDEF()*0.6;d.isMount=true;game.allies.push(d);player.mount=d;S.lastForm=spId;S.st-=10;
+  d.atk+=plATK()*0.6;d.def+=plDEF()*0.6;d.isMount=true;if(!S.formHp)S.formHp={};if(S.formHp[spId]!==undefined)d.hp=Math.max(1,d.maxHp*S.formHp[spId]);game.allies.push(d);player.mount=d;S.lastForm=spId;S.st-=10;
   if(d.canFly()&&player.pos.y-H(player.pos.x,player.pos.z)>1.5){d.flying=true;d.flyH=6;}
   player.center(_v);fxs.burst(_v.x,_v.y,_v.z,50,[0.55,0.9,1],6,1.1,0.35,1);d.anim.roar=1.2;
-  toast(`✨ ${sp.name}（${STAGES[d.stage].n}）に変身！ ${d.canFly()?'⤒で飛行・':''}${d.stage>=2?'🔥ブレス使用可':'ブレスはLv15から'}`,3);}
-function revert(forced){const d=player.mount;if(!d)return;player.mount=null;d.isMount=false;const i=game.allies.indexOf(d);if(i>=0)game.allies.splice(i,1);
+  toast(`✨ ${sp.name}（${STAGES[d.stage].n}）に変身！ ${d.hp<d.maxHp*0.995?`（体力${Math.round(d.hp/d.maxHp*100)}%） `:''}${d.canFly()?'⤒で飛行・':''}${d.stage>=2?'🔥ブレス使用可':'ブレスはLv15から'}`,3);}
+function revert(forced){const d=player.mount;if(!d)return;if(!S.formHp)S.formHp={};S.formHp[d.sp.id]=d.dead||d.hp<=0?1:clamp(d.hp/d.maxHp,0.01,1);player.mount=null;d.isMount=false;d.gone=true;const i=game.allies.indexOf(d);if(i>=0)game.allies.splice(i,1);
+  for(const w of game.wild){if(w.ai&&w.ai.target===d)w.ai.target=player;}if(game.focus===d)game.focus=null;
   player.pos.set(d.pos.x,d.pos.y,d.pos.z);const gy=slimeGround(d.pos.x,d.pos.z);if(player.pos.y>gy+0.3){player.air=true;player.vy=2;}else player.pos.y=gy;
   d.center(_v);fxs.burst(_v.x,_v.y,_v.z,40,[0.55,0.9,1],5,1,0.3,2);d.rig.dispose();player.sz=0.4;player.qv+=10;if(!forced)toast('💧 スライムに戻った',1.2);}
 function mount(){}function dismount(forced){revert(forced);}
 // ---- 毎フレーム：消化・変身エネルギー・基地 ----
-function slimeTick(dt,inp){
+function slimeTick(dt,inp){quickDecompTick(dt);
+  // 変身していない竜の体力は少しずつ回復（約2分で全快）
+  if(S.formHp)for(const k in S.formHp){if(player.mount&&player.mount.sp.id===k)continue;S.formHp[k]+=dt/120;if(S.formHp[k]>=1)delete S.formHp[k];}
   if(S.stomach.length&&!player.devour){const st=S.stomach[0];st.rem-=dt*S.pl.dig;
     if(st.rem<=0){S.stomach.shift();absorb(st);}}
   for(const h of S.hatch)h.rem-=dt*(1+(incSlots()-1)*0.3);
   const done=S.hatch.filter(h=>h.rem<=0);if(done.length){S.hatch=S.hatch.filter(h=>h.rem>0);for(const h of done)absorbForm({sp:h.sp,lv:Math.max(1,S.pl.lv-2)},true);}
-  const m=player.mount;if(m){S.st-=dt*(0.32+m.S*0.1)*(zoneOf(m.pos.x)==='surface'?1:0.7);if(S.st<=0){S.st=0;revert(true);toast('変身エネルギーが切れた…スライムに戻った',2.5);}}
+  const m=player.mount;if(m&&!game.rampage){S.st-=dt*(0.32+m.S*0.1)*(zoneOf(m.pos.x)==='surface'?1:0.7);if(S.st<=0){S.st=0;revert(true);toast('変身エネルギーが切れた…スライムに戻った',2.5);}}
   // 基地のコアに近づいたら体内の素材を自動であずける
   const P=player.mount||player;if(carried()>0&&Math.hypot(P.pos.x-baseObj.incub.x,P.pos.z-baseObj.incub.z)<7){let n=0;for(const k in S.inv){if(S.inv[k]>0){S.store[k]=(S.store[k]||0)+S.inv[k];n+=S.inv[k];S.inv[k]=0;}}
     if(n){for(let i=0;i<20;i++)fxs.spawn(P.pos.x+rnd(-0.5,0.5),P.pos.y+0.8,P.pos.z+rnd(-0.5,0.5),(baseObj.incub.x-P.pos.x)*1.5,rnd(1,3),(baseObj.incub.z-P.pos.z)*1.5,0.6,0.2,[0.6,0.95,1],3,0);
@@ -3369,16 +3742,33 @@ function absorbForm(st,hatched){{const sp=SP[st.sp];const first=!S.forms[st.sp];
   toast(hatched?`🐣 体内で${sp.name}が孵化！ 変身できるようになった${bonus?'（'+bonus+'）':''}`:first?`🎉 ${sp.name}を完全に吸収！ 変身できるようになった（${bonus}）`:`${sp.name}を吸収した（経験値+${xp}）`,4);plGainXp(hatched?Math.round(xp*0.5):xp);saveGame();}}
 
 // ---- アクション（ボタン） ----
+// ---- 変身中の攻撃アシスト（自動で向き・高さを合わせ、かみつきは相手まで飛び込む） ----
+const _aq=new THREE.Vector3(),_am=new THREE.Vector3();
+function pickAssistTarget(m,range){// 正面に近い敵を優先、同じくらいなら近い方
+  m.center(_am);let best=null,bs=1e9;for(const e of hostilesOf('ally')){if(e.dead||e.weak>0||e.camoHidden)continue;entCenter(e,_aq);const d=_aq.distanceTo(_am)-(e.radius||0.4);if(d>range)continue;
+    const a=Math.abs(angDiff(Math.atan2(_aq.x-_am.x,_aq.z-_am.z),m.yaw));const sc=d*(1+a*0.6)-(e===game.focus?6:0);if(sc<bs){bs=sc;best=e;}}
+  if(!best)best=nearestHostile(m,'ally',Math.min(range,6+m.S*2));return best;}
+function startAssist(m,t,mode){game.assist={m,tgt:t,mode,t:0,max:mode==='bite'?1.3:1.7};game.focus=t;}
+function mountAssist(dt){const A=game.assist;if(!A)return;const m=player.mount;if(!m||m!==A.m||!A.tgt||A.tgt.dead||player.dead){game.assist=null;return;}
+  A.t+=dt;const t=A.tgt;entCenter(t,_aq);const dx=_aq.x-m.pos.x,dz=_aq.z-m.pos.z,hd=Math.hypot(dx,dz)||0.01;
+  m.yaw=lerpAngle(m.yaw,Math.atan2(dx,dz),1-Math.exp(-dt*16));
+  if(m.flying){const g=Math.max(H(m.pos.x,m.pos.z),WATER_Y);const want=clamp(_aq.y-g-m.S*0.35,2.5,flyCap(m));m.flyH=lerp(m.flyH,want,1-Math.exp(-dt*7));m.pos.y=lerp(m.pos.y,g+want,1-Math.exp(-dt*(A.mode==='bite'?6:3)));}
+  else if(A.mode==='bite'&&_aq.y-m.pos.y>2.5+m.S&&m.canFly()&&!m.air){m.flying=true;m.flyH=Math.max(m.flyH||0,3);}
+  if(A.mode==='bite'){m.rig.mouthPos(_am);const reach=0.9+m.S*0.8+(t.radius||0.4);const dm=_am.distanceTo(_aq);
+    if(dm>reach){const step=Math.min((16+m.S*2.5)*dt,Math.max(0,hd-(t.radius||0.4)-m.S*0.6));m.pos.x+=dx/hd*step;m.pos.z+=dz/hd*step;m.speed=Math.max(m.speed,6);
+      if(Math.random()<dt*30){m.center(_am);fx.spawn(_am.x,_am.y,_am.z,-dx/hd*3,0.5,-dz/hd*3,0.3,0.2*m.S,[1,1,1],0,0.3);}}
+    if(dm<=reach||A.t>A.max){tryBite(m,t);game.assist=null;}}
+  else if(A.t>A.max)game.assist=null;}
 function actAttack(){if(player.dead||panelOpen||player.devour)return;
-  if(player.mount){const m=player.mount;const t=nearestHostile(m,'ally',3+m.S*2,{noWeak:true})||nearestHostile(m,'ally',3+m.S*2);if(t){_v.copy(t.pos).sub(m.pos);m.yaw=lerpAngle(m.yaw,Math.atan2(_v.x,_v.z),0.5);}
-    if(tryBite(m,t)){if(!t)harvestNear(2.5+m.S);}return;}
+  if(player.mount){const m=player.mount;if(m.cd.bite>0)return;if(game.assist&&game.assist.mode==='bite'&&game.assist.m===m)return;const t=pickAssistTarget(m,12+m.S*3);if(t){startAssist(m,t,'bite');return;}
+    if(tryBite(m,null))harvestNear(2.5+m.S);return;}
   if(player.atkCd>0)return;player.atkCd=0.5;player.atkT=0.42;player.hitDone=false;S.st=Math.max(0,S.st-3);
   const t=nearestHostile(player,'ally',6,{noWeak:true});if(t){_v.copy(t.pos).sub(player.pos);player.yaw=Math.atan2(_v.x,_v.z);}}
 const WATER_MAX=10;
 function nearRealWater(p){if(zoneOf(p.x)!=='surface')return false;for(let k=0;k<9;k++){const a=k/8*TAU,r=k?1.6:0;if(H(p.x+Math.cos(a)*r,p.z+Math.sin(a)*r)<WATER_Y-0.15)return true;}return false;}
 function actSkill(){if(player.dead||panelOpen||player.devour)return;
   if(player.mount){const m=player.mount;if(m.stage<2){toast(`ブレスはLv15（成体）から使える`);return;}if(m.cd.breath>0){toast(`ブレス再使用まで ${m.cd.breath.toFixed(1)}秒`,1);return;}
-    const t=nearestHostile(m,'ally',14+m.S*2,{noWeak:true})||nearestHostile(m,'ally',14+m.S*2);if(t){_v.copy(t.pos).sub(m.pos);const a=Math.atan2(_v.x,_v.z);if(Math.abs(angDiff(a,m.yaw))<1.6)m.yaw=lerpAngle(m.yaw,a,0.7);}castBreath(m,t);return;}
+    const t=pickAssistTarget(m,24+m.S*3);if(t){startAssist(m,t,'breath');_v.copy(t.pos).sub(m.pos);m.yaw=Math.atan2(_v.x,_v.z);}castBreath(m,t);return;}
   if(player.shootT>0)return;if(!(S.water>0)){toast('水がない！ 川や湖の水辺で✋「水をくむ」をしよう',2.5);return;}if(S.st<8){toast('スタミナが足りない');return;}S.st-=8;S.water--;player.shootT=0.45;player.qv-=6;
   const t=nearestHostile(player,'ally',22,{noWeak:true});player.center(_v);let dx=Math.sin(player.yaw),dy=0.1,dz=Math.cos(player.yaw);
   if(t){entCenter(t,_q);const v=_q.sub(_v);const L=v.length()||1;dx=v.x/L;dy=v.y/L+0.05;dz=v.z/L;player.yaw=Math.atan2(dx,dz);}
@@ -3388,13 +3778,15 @@ function actJump(){if(player.dead||panelOpen||player.devour)return;
     if(m.canFly()){if(m.flying&&H(m.pos.x,m.pos.z)<-0.7&&!m.sp.swim){toast('水の上には着陸できない');return;}m.flying=!m.flying;m.flyH=Math.max(m.flyH,9);if(m.flying){m.anim.roar=0.6;m.vy=5;}toast(m.flying?'飛び立った！ ▲▼で高度を調整':'着陸する',1.2);}
     else if(!m.air&&m.fb<0.1){m.air=true;m.vy=9+m.S*0.6;S.st=Math.max(0,S.st-6);}return;}
   if(!player.air&&S.st>=5){S.st-=5;player.hop(2.0);player.big=true;}}
-function actRide(){if(player.dead||panelOpen||player.devour)return;if(player.mount){revert();return;}
+function actRide(){if(player.dead||panelOpen||player.devour)return;if(game.rampage){toast('💢 暴走中はスライムに戻れない！',1.5);return;}if(player.mount){revert();return;}
   if(S.lastForm&&S.forms[S.lastForm]){transform(S.lastForm);return;}
   if(Object.keys(S.forms).length){openPanel('forms');return;}toast('ドラゴンを捕食して消化しきると変身できるようになる');}
 function findContext(){const P=player.mount||player;const p=P.pos;const rr=player.mount?player.mount.S*1.5:0;let best=null,bd=1e9;
   if(player.mount&&p.y-H(p.x,p.z)>2.5)return {kind:null,label:'調べる'};
-  if(!player.mount)for(const d of game.wild){if(d.weak>0&&!d.dead&&!d.devouring){const dist=d.pos.distanceTo(p)-d.radius;if(dist<4.5&&dist<bd){bd=dist;const c=devourCheck(d);best={kind:'tame',d,label:c.ok?'捕食':'Lv不足'};}}}
+  if(!player.mount)for(const d of game.wild){if(canDevour(d)){const dist=d.pos.distanceTo(p)-d.radius;if(dist<4.5&&dist<bd){bd=dist;const c=devourCheck(d);best={kind:'tame',d,label:c.ok?'捕食':c.full?'長押し:分解':'Lv不足'};}}}
   if(best)return best;
+  {const si=nearShroom(p);if(si!==null)return {kind:'shroom',i:si,label:'光の胞子'};}
+  {const a=nearAnimal(p,2.4+rr);if(a)return {kind:'animal',a,label:'食べる:'+a.T.n};}
   for(const n of NESTS){if(!n.nest.egg)continue;const dist=Math.hypot(n.nest.x-p.x,n.nest.z-p.z);if(dist<3.2+rr&&dist<bd){bd=dist;best={kind:'nest',n,label:'卵を食べる'};}}
   if(best)return best;
   if(Math.hypot(baseObj.incub.x-p.x,baseObj.incub.z-p.z)<5+rr)return {kind:'incub',label:'コア'};
@@ -3406,16 +3798,14 @@ function actInteract(){if(player.dead||panelOpen||player.devour)return;const c=f
   switch(c.kind){
     case 'tame':attemptTame(c.d);break;case 'nest':takeEgg(c.n);break;case 'incub':openPanel('core');break;
     case 'fire':S.hp=pMaxHp();S.st=pMaxSt();fxs.burst(baseObj.fire.x,baseObj.fire.y+1,baseObj.fire.z,30,[1,0.7,0.3],3,1.2,0.25,-1);toast('🔥 焚き火のそばで休んだ。HPとスタミナが全回復！');saveGame();break;
-    case 'res':harvest(c.e);break;
+    case 'res':harvest(c.e);break;case 'animal':eatAnimal(c.a);break;case 'shroom':lightShroom(c.i);break;
     case 'water':if(c.fake){c.fake.stay+=1.2;toast('……？ すくっても、すくっても、水がすくえない',2.5);break;}
       S.water=WATER_MAX;player.qv+=4;player.center(_v);fxs.burst(_v.x,_v.y,_v.z,18,[0.55,0.85,1],3,0.6,0.15,6);toast(`💧 水をくんだ！（水鉄砲 ${S.water}/${WATER_MAX}発）`,2);break;
     default:toast('近くに食べられるものはない');}}
 function slimeHud(){const P=S.pl;let h=`<div class="pm"><span>💧 しずく <b>Lv${P.lv}</b> <small>捕食上限Lv${devourLimit()}</small></span><div class="bg"><div class="fill xp" style="width:${clamp(P.xp/xpNeed(P.lv)*100,0,100)}%"></div></div></div>`;
   const m=player.mount;if(m)h+=`<div class="pm ride"><span>${EL[m.sp.el].i} ${m.sp.name}に変身中</span><div class="bg"><div class="fill hp" style="width:${clamp(m.hp/m.maxHp*100,0,100)}%"></div></div></div>`;
-  for(const hh of S.hatch)h+=`<div class="pm"><span>🐣 孵化中：${SP[hh.sp].name} ${Math.floor((1-hh.rem/hh.tot)*100)}%</span><div class="bg"><div class="fill xp" style="width:${(1-hh.rem/hh.tot)*100}%"></div></div></div>`;
-  for(const st of S.stomach)h+=`<div class="pm"><span>${st.egg?'🥚':'🌀'} 消化中：${SP[st.sp].name}${st.egg?'の卵':''} ${Math.floor((1-st.rem/st.tot)*100)}%</span><div class="bg"><div class="fill weak" style="width:${(1-st.rem/st.tot)*100}%"></div></div></div>`;
   h+=`<div class="pm"><span>🫙 体内 ${carried()}/${plCap()}</span></div>`;return h;}
-function devourTag(d){const c=devourCheck(d);return c.ok?'<div class="tw">💧 捕食できる！ ✋</div>':`<div class="tw" style="color:#ffb0b0">🚫 ${c.msg}</div>`;}
+function devourTag(d){const c=devourCheck(d);return c.ok?'<div class="tw">💧 捕食できる！ ✋</div>':c.full?'<div class="tw" style="color:#ffe08a">🔪 胃袋がいっぱい：✋長押しで分解</div>':`<div class="tw" style="color:#ffb0b0">🚫 ${c.msg}</div>`;}
 
 // ---- 基地のコアで生成する強化素材 ----
 const CORE_RECIPES=[
@@ -3455,14 +3845,8 @@ function tabCore(){const near=nearCore();
 function tabSlime(){const P=S.pl;const forms=Object.keys(S.forms).length;
   let h=`<div class="gstat"><span>💧 レベル <b>${P.lv}</b></span><span>⚔ 攻撃 <b>${Math.round(plATK())}</b></span><span>🛡 防御 <b>${Math.round(plDEF())}</b></span><span>❤ 最大HP <b>${pMaxHp()}</b></span><span>💨 スタミナ <b>${pMaxSt()}</b></span>
    <span>🍽 捕食できる竜 <b>Lv${devourLimit()}まで</b></span><span>🌀 胃袋 <b>${plSlots()}つ</b></span><span>⚗️ 消化速度 <b>×${P.dig.toFixed(2)}</b></span><span>🫙 体内の容量 <b>${plCap()}</b></span><span>🐉 変身できる竜 <b>${forms}種</b></span></div>
-   <div class="kv">経験値 ${P.xp} / ${xpNeed(P.lv)}</div>${hpBar(P.xp,xpNeed(P.lv),'xp')}<h4>消化中のドラゴン</h4>`;
-  if(!S.stomach.length)h+='<div class="empty">胃袋は空っぽ。弱らせたドラゴンに近づいて✋で捕食しよう</div>';
-  S.stomach.forEach((st,i)=>{h+=`<div class="islot">${st.egg?'🥚':'🌀'} ${SP[st.sp].name}${st.egg?'の卵':'（Lv'+st.lv+'）'} 消化まであと${Math.ceil(st.rem/S.pl.dig)}秒${hpBar(st.tot-st.rem,st.tot,'weak')}
-    ${st.egg?`<div class="btns"><button class="sm" data-act="toinc" data-v="${i}" ${incSlots()&&S.hatch.length<incSlots()?'':'disabled'}>🐣 孵化装置へ移す</button>${incSlots()?'':'<small>　コアで「体内孵化装置」を作ると移せる</small>'}</div>`:''}</div>`;});
-  h+=`<h4>体内の孵化装置（${S.hatch.length}/${incSlots()}）</h4>`;
-  if(!incSlots())h+='<div class="empty">まだ孵化装置がない。基地のコア（💎）で「体内孵化装置」を作ると、食べた卵を消化される前に孵化させられる</div>';
-  for(const hh of S.hatch)h+=`<div class="islot">🐣 ${SP[hh.sp].name}の卵　孵化まであと${Math.ceil(hh.rem/(1+(incSlots()-1)*0.3))}秒${hpBar(hh.tot-hh.rem,hh.tot,'xp')}</div>`;
-  h+=`<h4>しずくの遊び方</h4><ul class="help"><li>🌊 水鉄砲は水をくまないと撃てない。川や湖の水辺で✋「水をくむ」（1回で10発）</li><li>⚔ 体当たりでドラゴンを弱らせる（HP20%以下）→ ✋ で捕食</li><li>自分のレベル＋2までのドラゴンを捕食できる。消化には時間がかかり、ダメージを受けると少し遅れる</li>
+   <div class="kv">経験値 ${P.xp} / ${xpNeed(P.lv)}</div>${hpBar(P.xp,xpNeed(P.lv),'xp')}<div class="kv">消化中のドラゴンと体内の孵化装置は「🫙 体内」タブで見られる</div>`;
+  h+=`<h4>しずくの遊び方</h4><ul class="help"><li>💢 変身中、画面左の「暴走」を長押しすると暴走モード。15秒間、攻撃力と攻撃速度1.5倍・防御2倍・高速・スタミナ消費なしで勝手に戦うが、終わるとその変身は失われ、HP半分・スタミナ0でスライムに戻り、しばらくスタミナの回復が遅くなる</li><li>🌊 水鉄砲は水をくまないと撃てない。川や湖の水辺で✋「水をくむ」（1回で10発）</li><li>⚔ 体当たりでドラゴンを弱らせる（HP20%以下）→ ✋ で捕食。倒してしまっても、しばらくは亡骸を✋で捕食できる</li><li>👁 岩や切り株、キノコなどにばけて動かない「擬態竜」がいる。近づきすぎると正体を現してかみついてくる（その場からは動かない）</li><li>🔪 消化しきる前なら「体内」タブで分解して、肉や竜鱗などの素材にできる。胃袋がいっぱいの時は、✋を長押しするとその場で食べてすぐ分解できる</li><li>自分のレベル＋2までのドラゴンを捕食できる。消化には時間がかかり、ダメージを受けると少し遅れる</li>
    <li>消化しきると、そのドラゴンに変身できる（🐲ボタン／🐉タブ）。初めての種類は能力の一部も吸収する</li><li>変身中はスタミナを消費。成長段階は自分のレベルで決まる（Lv5若竜・Lv15成体・Lv30古龍）</li>
    <li>🕳 地上の大穴（マップの🕳）から地底の大空洞へ。入るときはドラゴンに変身すること（スライムのまま穴に落ちるとやられる）。中ではスライムに戻っても大丈夫。光の差す縦穴が出口で、登るにはドラゴンの姿が必要</li><li>💨 ドラゴンごとに移動速度がちがう。遠くへ行く時は速い竜に変身しよう（変身タブで速さを確認できる）</li><li>☁ 大型のドラゴンで高く飛ぶと、雲の上の「天空の浮島」へ行ける。小さな竜は高く飛べない。雲海に降りると地上へ戻る</li><li>💔 変身中にそのドラゴンが倒されると、その変身は失われる</li><li>巣の卵を食べると消化が始まり少し経験値。消化前に孵化装置へ移すと孵化し、その竜に変身できる</li><li>木や岩、ベリーも✋で食べて体内へ。基地のコアへ運ぶと強化素材を生成できる</li></ul>`;return h;}
 let formSel=null;
@@ -3477,17 +3861,29 @@ function tabForms(){const ids=Object.keys(S.forms);if(!ids.length)return '<div c
     <div class="btns">${player.mount?`<button data-act="revert">💧 スライムに戻る</button>`:`<button class="decide on" data-act="transform" data-v="${sp.id}" ${S.st>=30?'':'disabled'}>✨ 変身する（スタミナ30〜）</button>`}</div></div></div><h4>変身できるドラゴン（${ids.length}種）</h4><div class="grid">`;
   for(const id of ids){const p=SP[id];h+=`<div class="card ${id===formSel?'sel':''}" data-act="fsel" data-v="${id}"><div class="cn">${EL[p.el].i} ${p.name}</div><div class="cs">${sizeClass(p)}${id===S.lastForm?' ★前回':''}</div><div class="cs2">💨 ${spdStars(p)}</div></div>`;}
   return h+'</div>';}
-function tabBag(){let h=`<p class="note">体内に運んでいる素材 ${carried()} / ${plCap()}（基地のコアに近づくと自動であずける）</p><div class="grid">`;
+function decompYield(st){const sp=SP[st.sp];const k=Math.max(0.5,st.rem/st.tot);const stg=st.stage||0;
+  if(st.egg)return {meat:1,scale:1};
+  const y={meat:Math.max(1,Math.round((2+sp.tier+sp.size*1.2+stg)*k)),scale:Math.max(1,Math.round((1+sp.tier*0.8+stg*0.5)*k))};if(sp.tier>=3)y.crystal=Math.max(1,Math.round((sp.tier-2)*k));return y;}
+function decompText(st){return Object.entries(decompYield(st)).map(([k,n])=>ITEMS[k].i+'×'+n).join(' ');}
+function tabBag(){let h=`<h4>消化中のドラゴン（胃袋 ${S.stomach.length}/${plSlots()}）</h4>`;
+  if(!S.stomach.length)h+='<div class="empty">胃袋は空っぽ。弱らせたドラゴンや倒したドラゴンの亡骸に✋で捕食しよう</div>';
+  S.stomach.forEach((st,i)=>{h+=`<div class="islot">${st.egg?'🥚':'🌀'} ${SP[st.sp].name}${st.egg?'の卵':'（Lv'+st.lv+'）'} 消化まであと${Math.ceil(st.rem/S.pl.dig)}秒${hpBar(st.tot-st.rem,st.tot,'weak')}
+    <div class="btns"><button class="sm" data-act="decomp" data-v="${i}">🔪 分解して素材にする（${decompText(st)}）</button>${st.egg?`<button class="sm" data-act="toinc" data-v="${i}" ${incSlots()&&S.hatch.length<incSlots()?'':'disabled'}>🐣 孵化装置へ移す</button>${incSlots()?'':'<small>　コアで「体内孵化装置」を作ると移せる</small>'}`:''}</div></div>`;});
+  h+=`<h4>体内の孵化装置（${S.hatch.length}/${incSlots()}）</h4>`;
+  if(!incSlots())h+='<div class="empty">まだ孵化装置がない。基地のコア（💎）で「体内孵化装置」を作ると、食べた卵を消化される前に孵化させられる</div>';
+  for(const hh of S.hatch)h+=`<div class="islot">🐣 ${SP[hh.sp].name}の卵　孵化まであと${Math.ceil(hh.rem/(1+(incSlots()-1)*0.3))}秒${hpBar(hh.tot-hh.rem,hh.tot,'xp')}</div>`;
+
+  h+=`<h4>体内の素材</h4><p class="note">体内に運んでいる素材 ${carried()} / ${plCap()}（基地のコアに近づくと自動であずける）</p><div class="grid">`;
   for(const k in ITEMS){const n=S.inv[k]||0;if(!n)continue;const it=ITEMS[k];const can=k==='berry'||k==='meat';
     h+=`<div class="card"><div class="cn">${it.i} ${it.n}</div><div class="cs">×${n}</div>${can?`<button class="sm" data-act="eatnow" data-v="${k}">その場で消化（${k==='berry'?'HP+8':'空腹+15'}）</button>`:''}</div>`;}
   if(!carried())h+='<div class="empty">体内は空っぽ。木や岩、ベリーの茂みに近づいて✋で食べよう</div>';return h+'</div>';}
 function tabSettingsBase(){return `<div class="set"><h4>設定</h4>
   <div class="btns"><button data-act="shadow">影：${S.opt.shadow?'ON':'OFF'}</button><button data-act="wildmax">野生ドラゴンの数：${S.opt.wildMax}</button><button data-act="bgm">🎵 BGM：${S.opt.bgm?'ON':'OFF'}</button><button data-act="vol">🔊 音量：${S.opt.vol<=0.25?'小':S.opt.vol<=0.5?'中':'大'}</button><button data-act="res">画質：${S.opt.res===1?'標準':S.opt.res<1?'軽量':'高精細'}</button></div>
   <div class="btns"><button data-act="save">💾 今すぐ保存</button><button data-act="reset" class="danger">🗑 データを初期化</button></div>
-  <h4>操作方法</h4><ul class="help"><li>画面左側をドラッグ：ぴょんぴょん移動（端まで倒すとダッシュ）／右側ドラッグ：カメラ</li><li>⚔ 体当たり　💧 水鉄砲（変身中はブレス）　✋ 食べる・捕食</li><li>⤒ 大ジャンプ（変身中は飛行）　🐲 前回の姿に変身／元に戻る　👁 景色を鑑賞</li>
+  <h4>操作方法</h4><ul class="help"><li>画面左側をドラッグ：ぴょんぴょん移動（円の外まで大きく引っぱるとダッシュ。スタミナを使うかわりにとても速い）／右側ドラッグ：カメラ</li><li>⚔ 体当たり　💧 水鉄砲（変身中はブレス）　✋ 食べる・捕食</li><li>⤒ 大ジャンプ（変身中は飛行）　🐲 前回の姿に変身／元に戻る　👁 景色を鑑賞</li>
   <li>PC：WASD移動・Shiftダッシュ・Space ジャンプ・J攻撃・E食べる・Q水鉄砲・R変身・H UI切替・Esc メニュー</li></ul></div>`;}
 const TAB_FN={slime:tabSlime,forms:tabForms,core:tabCore,bag:tabBag,dex:tabDex,settings:tabSettings};
-function slimeAct(act,v){const g=gmAct(act,v);if(g!==undefined)return g;
+function slimeAct(act,v){const g=gmAct(act,v);if(g!==undefined)return g;const la=layAct(act);if(la!==undefined)return la;
   switch(act){
     case 'gen':{const r=CORE_RECIPES.concat(INC_RECIPES).find(x=>x.id===v);if(!nearCore()||!Object.entries(r.req).every(([k,n])=>(S.store[k]||0)>=n))return true;for(const [k,n] of Object.entries(r.req))S.store[k]-=n;
       const f=r.fx,P=S.pl;if(f.atk)P.atkB+=f.atk;if(f.def)P.defB+=f.def;if(f.hp){P.hpB+=f.hp;S.hp=Math.min(pMaxHp(),S.hp+f.hp);}if(f.cap)P.capB+=f.cap;if(f.dig)P.dig+=f.dig;if(f.inc)P.inc=(P.inc||0)+1;if(f.st){P.stB=(P.stB||0)+f.st;S.st=Math.min(pMaxSt(),S.st+f.st);}
@@ -3495,6 +3891,10 @@ function slimeAct(act,v){const g=gmAct(act,v);if(g!==undefined)return g;
     case 'toinc':{const i=+v;const st=S.stomach[i];if(!st||!st.egg)return true;if(!incSlots()){toast('コアで「体内孵化装置」を作ろう');return true;}
       if(S.hatch.length>=incSlots()){toast('孵化装置がいっぱい');return true;}S.stomach.splice(i,1);const sp=SP[st.sp];const tot=Math.round(45+sp.tier*30);
       S.hatch.push({sp:st.sp,rem:tot,tot});player.qv+=5;toast(`🐣 ${sp.name}の卵を体内の孵化装置へ（約${tot}秒で孵化）`,3);saveGame();return true;}
+    case 'decomp':{const i=+v;const st=S.stomach[i];if(!st)return true;const y=decompYield(st);S.stomach.splice(i,1);let got=[];
+      for(const [k,n] of Object.entries(y)){const g=addItem(k,n);if(g)got.push(ITEMS[k].i+'×'+g);}
+      player.qv+=4;player.center(_v);fxs.burst(_v.x,_v.y,_v.z,20,spCol(SP[st.sp]),3,0.6,0.18,6);
+      toast(`🔪 ${SP[st.sp].name}${st.egg?'の卵':''}を分解した！ ${got.join(' ')||'（体内がいっぱいで入らなかった）'}`,3);saveGame();return true;}
     case 'fsel':formSel=v;return true;
     case 'transform':closePanel();transform(v);return 'closed';
     case 'revert':revert();return true;
@@ -3502,12 +3902,12 @@ function slimeAct(act,v){const g=gmAct(act,v);if(g!==undefined)return g;
   }return false;}
 // ================= 地下（地底の大空洞）・天空（天空の浮島） =================
 // どちらも地上から遠く離れた別の場所に作り、描画距離の外に置くことで重くならないようにする
-const CAVE={cx:820,cz:0,R:104,top:28};
-const SKY={cx:-820,cz:0,R:112,sea:52,isl:66};
+const CAVE={cx:2000,cz:0,R:104,top:28};
+const SKY={cx:-2000,cz:0,R:112,sea:52,isl:66};
 const ZSEG=160,ZSIZE=240,ZCELL=ZSIZE/ZSEG;
 const CAVE_H=new Float32Array((ZSEG+1)*(ZSEG+1)),SKY_H=new Float32Array((ZSEG+1)*(ZSEG+1));
 const SKY_BIG=2.2;// これ以上の大きさの竜だけが高く飛べ、天空へ行ける
-function zoneOf(x){return x>600?'cave':x<-600?'sky':'surface';}
+function zoneOf(x){return x>1200?'cave':x<-1200?'sky':'surface';}
 function zgrid(G,o,x,z){const fx=clamp((x-o.cx+ZSIZE/2)/ZCELL,0,ZSEG-0.0001),fz=clamp((z-o.cz+ZSIZE/2)/ZCELL,0,ZSEG-0.0001);const i=Math.floor(fx),j=Math.floor(fz),u=fx-i,v=fz-j;
   const r=ZSEG+1;const h00=G[j*r+i],h10=G[j*r+i+1],h01=G[(j+1)*r+i],h11=G[(j+1)*r+i+1];
   return v>=u?h00+(h11-h01)*u+(h01-h00)*v:h00+(h10-h00)*u+(h11-h10)*v;}
@@ -3552,7 +3952,7 @@ function zoneMesh(G,o,colFn,emis){const r=ZSEG+1;const n=ZSEG*ZSEG*6;const pos=n
   const m=new THREE.Mesh(g,new THREE.MeshLambertMaterial({vertexColors:true,emissive:emis}));m.receiveShadow=true;return m;}
 // ---- 地上の穴 ----
 const HOLES=[];
-function findHoleSpots(){const tg=[[-70,-20],[110,40],[-80,140],[60,-120]];
+function findHoleSpots(){const tg=[[-140,-40],[220,80],[-160,280],[120,-240],[330,-20],[-330,40]];
   for(const [tx,tz] of tg){let best=null;for(let r=0;r<60&&!best;r+=3)for(let k=0;k<16;k++){const a=k/16*TAU;const x=tx+Math.cos(a)*r,z=tz+Math.sin(a)*r;if(!inWorld(x,z))continue;
       const h=H(x,z);if(h<1.6||lavaAt(x,z)||Math.hypot(x-BASE.x,z-BASE.z)<40)continue;let sl=0;for(let q=0;q<6;q++){const b=q/6*TAU;sl=Math.max(sl,Math.abs(H(x+Math.cos(b)*4,z+Math.sin(b)*4)-h));}
       if(sl>1.2)continue;best={x,z,y:h};break;}
@@ -3587,7 +3987,7 @@ function zoneMini(G,cf){const c=document.createElement('canvas');c.width=c.heigh
   for(let j=0;j<ZSEG;j++)for(let i=0;i<ZSEG;i++){const q=rgb(cf(G[j*r+i]));const o=(j*ZSEG+i)*4;im.data[o]=q[0]*255;im.data[o+1]=q[1]*255;im.data[o+2]=q[2]*255;im.data[o+3]=255;}
   g.putImageData(im,0,0);return c;}
 function zoneFrame(x){const z=zoneOf(x);
-  if(z==='cave')return {img:ZN.mini.cave,x0:CAVE.cx-ZSIZE/2,z0:CAVE.cz-ZSIZE/2,s:ZSIZE,marks:RAMPS.map(R=>[R.E[0],R.E[1],'☀'])};
+  if(z==='cave')return {img:ZN.mini.cave,x0:CAVE.cx-ZSIZE/2,z0:CAVE.cz-ZSIZE/2,s:ZSIZE,marks:RAMPS.map(R=>[R.E[0],R.E[1],'☀']).concat(SHROOMS.map(s=>[s.x,s.z,s.lit?'🍄':'🌑']))};
   if(z==='sky')return {img:ZN.mini.sky,x0:SKY.cx-ZSIZE/2,z0:SKY.cz-ZSIZE/2,s:ZSIZE,marks:[]};
   return {img:miniImg,x0:-HALF,z0:-HALF,s:WORLD,marks:HOLES.map(h=>[h.x,h.z,'🕳'])};}
 // ---- 地下・天空の環境オブジェクト（既存の仕組みに追加） ----
@@ -3618,7 +4018,7 @@ function zoneTeleport(x,z,o={}){
     if(o.fly&&m.canFly()){m.flying=true;m.flyH=o.fly;m.fb=1;}else{m.flying=false;m.pos.y=Math.max(m.pos.y,H(x,z));}m.rig.place(m.pos.x,m.pos.y,m.pos.z,m.yaw,m.gfn);player.pos.copy(m.pos);}
   else{player.pos.set(x,o.y!==undefined?o.y:slimeGround(x,z),z);player.vy=0;player.air=o.y!==undefined;}
   game.camX=undefined;game.camY=undefined;game._camInit=false;game.lastBiome=null;envDirty=true;spawnT=0.5;}
-function enterCave(i){const R=RAMPS[i];const dx=R.B[0]-R.T[0],dz=R.B[1]-R.T[1],l=Math.hypot(dx,dz);
+function enterCave(i){const R=RAMPS[i%RAMPS.length];const dx=R.B[0]-R.T[0],dz=R.B[1]-R.T[1],l=Math.hypot(dx,dz);
   zoneFade(()=>{zoneTeleport(R.T[0]+dx/l*2.5,R.T[1]+dz/l*2.5,{yaw:Math.atan2(dx,dz)});
     toast('⬇ 長い坂道が、暗い地の底へと続いている…（光の差す場所から地上へ戻れる）',4.5);});}
 function exitCave(i){const h=HOLES[i];
@@ -3640,6 +4040,8 @@ function zoneTick(dt){game.zoneCd=Math.max(0,(game.zoneCd||0)-dt);game.capT=(gam
   const m=player.mount,P=m||player;const z=zoneOf(P.pos.x);
   ZN.cave.visible=z==='cave';ZN.sky.visible=z==='sky';for(const b of ZN.beams)b.visible=z==='cave';
   if(z==='surface'){
+    {const lim=HALF-14;let hit=false;for(const k of['x','z']){if(P.pos[k]>lim){P.pos[k]=lim;hit=true;}else if(P.pos[k]<-lim){P.pos[k]=-lim;hit=true;}}
+      if(hit){if(!player.mount)player.pos.copy(P.pos);if((game.edgeT||0)<=0){game.edgeT=5;toast('🌊 この先は果てしない外洋。これ以上は進めない',3);}}game.edgeT=(game.edgeT||0)-dt;}
     for(let i=0;i<HOLES.length;i++){const h=HOLES[i];const d=Math.hypot(P.pos.x-h.x,P.pos.z-h.z);
       if(d<10&&!h.warned){h.warned=true;toast(m?'🕳 地下への大穴。そのまま入ると地底の大空洞へ降りていく':'⚠ 地下への大穴。ドラゴンに変身すれば降りられる（スライムのまま入るとやられてしまう）',4);}if(d>16)h.warned=false;
       if(d<2.7&&P.pos.y<h.y+2.5&&game.zoneCd<=0){if(!m){toast('🕳 しずくは暗闇に落ちてしまった…スライムのままでは地下で生きられない',4);player.die();}else enterCave(i);return;}}
@@ -3660,13 +4062,48 @@ function zoneTick(dt){game.zoneCd=Math.max(0,(game.zoneCd||0)-dt);game.capT=(gam
 }
 // ---- 明るさ（地下は薄暗く、出口の光だけが目印） ----
 function zoneAtmos(dt){const z=zoneOf(_camT.x);ATM.sky.visible=z!=='cave';ZN.light.intensity=0;
-  if(z==='cave'){scene.fog.color.setHex(0x0a0e1c);scene.background.setHex(0x05070e);scene.fog.near=16;scene.fog.far=92;
-    sun.intensity=0.16;sun.color.setRGB(0.5,0.58,1);hemi.intensity=0.34;hemi.color.setRGB(0.36,0.42,0.62);hemi.groundColor.setRGB(0.1,0.09,0.16);
+  if(z==='cave'){const L=caveAllLit()?1:0;scene.fog.color.setHex(L?0x1e3040:0x0a0e1c);scene.background.setHex(L?0x0e1a26:0x05070e);scene.fog.near=L?30:16;scene.fog.far=L?150:92;
+    sun.intensity=L?0.5:0.16;sun.color.setRGB(0.5,0.58,1);hemi.intensity=L?0.8:0.34;hemi.color.setRGB(0.36,0.42,0.62);hemi.groundColor.setRGB(0.1,0.09,0.16);
     let best=null,bd=1e9;for(const R of RAMPS){const d=Math.hypot(_camT.x-R.E[0],_camT.z-R.E[1]);if(d<bd){bd=d;best=R;}}
     if(best&&bd<60){ZN.light.position.set(best.E[0],CAVE.top+5,best.E[1]);ZN.light.intensity=1.8*(0.9+Math.sin(ATM.t*1.3)*0.1);}
     const k=0.13+Math.sin(ATM.t*0.9)*0.03;for(const b of ZN.beams)if(b.material.opacity<0.3)b.material.opacity=k;
     const ov=$('tone');if(ov&&ov._t!=='cave'){ov._t='cave';ov.style.background='radial-gradient(ellipse at 50% 45%,rgba(0,0,0,0) 35%,rgba(2,2,10,0.7) 100%)';}}
   else if(z==='sky'){scene.fog.near=70;scene.fog.far=235;sun.intensity*=1.15;hemi.intensity+=0.08;}}
+// ================= 地底の巨大キノコ：光の胞子で灯す =================
+const SHROOMS=[];
+function buildCaveShrooms(scene){const R=mulberry(31337);let tries=0;
+  while(SHROOMS.length<10&&tries<6000){tries++;const a=R()*TAU,r=Math.sqrt(R())*(CAVE.R-12);const x=CAVE.cx+Math.cos(a)*r,z=CAVE.cz+Math.sin(a)*r;const h=H(x,z);
+    if(h>9)continue;if(RAMPS.some(Rp=>segT(x,z,Rp.T,Rp.B)[1]<9||Math.hypot(x-Rp.T[0],z-Rp.T[1])<12))continue;
+    if(SHROOMS.some(s=>Math.hypot(s.x-x,s.z-z)<44+R()*10))continue;SHROOMS.push({x,z,y:h,s:0.85+R()*0.45,r:R()*TAU,lit:false,k:0});}
+  for(const sh of SHROOMS){const gb=new GB();const s=sh.s;
+    gb.tube([[0,0,0],[0.4*s,3*s,0.2*s],[0.1*s,6*s,-0.2*s],[0.3*s,8.2*s,0]],1.1*s,0.75*s,8,(l,w)=>hash3(w)>0.75?0x9a98a8:0x7e7c8c);
+    gb.add(P_sphere(6,4),{s:[1.6*s,0.5*s,1.6*s],t:[0,0.15,0],c:0x5a5868});
+    const cap=new GB();cap.add(P_sphere(12,6),{s:[5.2*s,2.0*s,5.2*s],t:[0.3*s,8.6*s,0],c:(l)=>l[1]<-0.3?0xc8d0e0:0xffffff});
+    cap.add(P_cyl(1,1,16),{s:[4.6*s,0.1,4.6*s],t:[0.3*s,7.6*s,0],c:0xb8c0d8});
+    for(let k=0;k<10;k++){const b=k/10*TAU,rr=k%2?2.6:3.6;cap.add(P_sphere(5,3),{s:[0.55*s,0.22*s,0.55*s],t:[0.3*s+Math.cos(b)*rr*s,8.6*s+1.55*s*(1-rr/5.2*0.75),Math.sin(b)*rr*s],c:0xffffff});}
+    const stem=new THREE.Mesh(gb.geo(),MAT.body);stem.position.set(sh.x,sh.y-0.2,sh.z);stem.rotation.y=sh.r;scene.add(stem);
+    sh.mat=new THREE.MeshLambertMaterial({vertexColors:true,color:0x5a7a88,emissive:0x0c2a2c});const cm=new THREE.Mesh(cap.geo(),sh.mat);cm.position.copy(stem.position);cm.rotation.y=sh.r;scene.add(cm);sh.meshes=[stem,cm];
+    sh.capY=sh.y+8.6*s;}
+  // 洞窟の地面に「光」を足すための頂点属性（キノコの近くだけ明るくする）
+  const g=ZN.cave.geometry,pos=g.attributes.position;const pa=pos.array;const n=pa.length/3;const glow=new Float32Array(n);g.setAttribute('aGlow',new THREE.BufferAttribute(glow,1));
+  for(const sh of SHROOMS){const idx=[],w=[];const RR=36*sh.s;for(let i=0;i<n;i++){const dx=pa[i*3]-sh.x,dz=pa[i*3+2]-sh.z;const d2=dx*dx+dz*dz;if(d2<RR*RR){idx.push(i);w.push(Math.pow(1-Math.sqrt(d2)/RR,1.4));}}sh.vi=new Uint32Array(idx);sh.vw=new Float32Array(w);}
+  const m=ZN.cave.material;m.onBeforeCompile=shd=>{shd.vertexShader='attribute float aGlow;\nvarying float vGlow;\n'+shd.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n  vGlow=aGlow;');
+    shd.fragmentShader='varying float vGlow;\n'+shd.fragmentShader.replace('#include <emissivemap_fragment>','#include <emissivemap_fragment>\n  totalEmissiveRadiance+=vec3(0.45,0.85,0.8)*vGlow*(0.75+0.25*diffuseColor.g);');};
+  m.customProgramCacheKey=()=>'caveglow';m.needsUpdate=true;
+  for(const i of(S.caveLit||[]))if(SHROOMS[i]){SHROOMS[i].lit=true;SHROOMS[i].k=1;}shroomApply(true);}
+function shroomApply(all){const g=ZN.cave.geometry;const at=g.attributes.aGlow;if(!at)return;const arr=at.array;
+  if(all)arr.fill(0);for(const sh of SHROOMS){if(sh.k<=0)continue;const K=sh.k*0.85;for(let j=0;j<sh.vi.length;j++){const i=sh.vi[j],v=sh.vw[j]*K;if(v>arr[i])arr[i]=v;}
+    sh.mat.emissive.setRGB(0.05+0.2*sh.k,0.16+0.69*sh.k,0.17+0.63*sh.k);sh.mat.color.setRGB(0.35+0.48*sh.k,0.48+0.43*sh.k,0.53+0.4*sh.k);}
+  at.needsUpdate=true;}
+function nearShroom(p){if(zoneOf(p.x)!=='cave')return null;for(let i=0;i<SHROOMS.length;i++){const sh=SHROOMS[i];if(!sh.lit&&Math.hypot(p.x-sh.x,p.z-sh.z)<7*sh.s)return i;}return null;}
+function lightShroom(i){const sh=SHROOMS[i];if(!sh||sh.lit)return;sh.lit=true;sh.k=0.01;S.caveLit=S.caveLit||[];if(!S.caveLit.includes(i))S.caveLit.push(i);
+  const P=player.mount||player;P.center?P.center(_v):_v.copy(P.pos);for(let k=0;k<40;k++){const t=k/40;fx.spawn(lerp(_v.x,sh.x,t)+rnd(-0.6,0.6),lerp(_v.y,sh.capY,t)+rnd(-0.6,0.6),lerp(_v.z,sh.z,t)+rnd(-0.6,0.6),rnd(-0.4,0.4),rnd(0.2,1),rnd(-0.4,0.4),1.2,0.18,[0.6,1,0.95],0,0.2);}
+  const n=S.caveLit.length;if(player.qv!==undefined)player.qv+=4;
+  if(n>=SHROOMS.length)toast('✨ すべての巨大キノコが灯った！ 地底の大空洞に、やさしい光が満ちていく…',5);
+  else toast(`🍄 巨大キノコに光の胞子が宿った！（${n}/${SHROOMS.length}）`,2.5);saveGame();}
+function shroomTick(dt){let ch=false;for(const sh of SHROOMS){if(sh.lit&&sh.k<1){sh.k=Math.min(1,sh.k+dt*0.7);ch=true;}}if(ch)shroomApply(true);
+  if(zoneOf(_camT.x)!=='cave')return;for(const sh of SHROOMS){if(Math.hypot(sh.x-_camT.x,sh.z-_camT.z)>70)continue;if(!sh.lit){if(Math.random()<dt*0.6)fx.spawn(sh.x+rnd(-3,3)*sh.s,sh.capY-rnd(0,1),sh.z+rnd(-3,3)*sh.s,0,-0.15,0,3,0.08,[0.4,0.8,0.75],0,0.05);continue;}if(Math.random()<dt*4)fx.spawn(sh.x+rnd(-10,10)*sh.s,sh.y+rnd(1,9)*sh.s,sh.z+rnd(-10,10)*sh.s,rnd(-0.2,0.2),rnd(0.1,0.4),rnd(-0.2,0.2),3,0.1,[0.6,1,0.9],0,0.05);}}
+const caveAllLit=()=>SHROOMS.length&&(S.caveLit||[]).length>=SHROOMS.length;
 // ================= 図鑑（捕食した竜だけ登録）とGMモード =================
 const GM_MATS=['wood','stone','iron','crystal','berry','herb','meat','scale'];
 function tabDex(){const reg=id=>S.gm||!!S.dex[id];
@@ -3687,8 +4124,8 @@ function tabDex(){const reg=id=>S.gm||!!S.dex[id];
   for(const s of SPECIES_LIST){const p=SP[s.id];const r=reg(p.id);
     h+=`<div class="card ${p.id===dexSel?'sel':''}" data-act="dsel" data-v="${p.id}" style="${r?'':'opacity:.55'}"><div class="cn">${String(p.no).padStart(2,'0')} ${r?EL[p.el].i:'❔'}${S.forms[p.id]?'💧':''}${p.when&&p.when!=='any'?{day:'☀',night:'🌙',dusk:'🌅'}[p.when]:''}${p.moon?'🌕':''}</div><div class="cs">${r?p.name:'？？？'}</div><div class="cs2">${r?sizeClass(p)+'・':''}${BIOMES[p.biome].n.replace(/の.*$/,'')}</div></div>`;}
   return h+'</div>';}
-function tabSettings(){let h=tabSettingsBase();
-  if(S.gm)h+=`<div class="set"><h4>🛠 GMモード</h4><p class="note">テスト用の機能。「データを初期化」を長押しすると、GMモードのON/OFFを切り替えられる。</p>
+function tabSettings(){let h=tabSettingsBase()+tabControls();
+  if(S.gm)h+=`<div class="set"><h4>🛠 GMモード</h4><p class="note">テスト用の機能。「影」と「野生ドラゴンの数」を同時に長押しして「GM」と入力すると、ON/OFFを切り替えられる。</p>
     <div class="btns"><button data-act="gm_dex">📖 図鑑を全部埋める（全種 捕食済み・変身OK）</button></div>
     <div class="btns"><button data-act="gm_mat">🪵 素材を増やす（コアの素材 各+50）</button><button data-act="gm_bag">🫙 体内の素材 各+10</button></div>
     <div class="btns"><button data-act="gm_lv" data-v="1">⬆ レベル+1</button><button data-act="gm_lv" data-v="10">⏫ レベル+10</button><button data-act="gm_lv" data-v="99">🔝 最大レベル</button></div>
@@ -3700,19 +4137,46 @@ function gmAct(act,v){if(!act.startsWith('gm_'))return undefined;if(!S.gm&&act!=
     case 'gm_mat':for(const k of GM_MATS)S.store[k]=(S.store[k]||0)+50;toast('🪵 コアの素材を各+50した',2.5);break;
     case 'gm_bag':for(const k of GM_MATS)S.inv[k]=(S.inv[k]||0)+10;toast('🫙 体内の素材を各+10した',2.5);break;
     case 'gm_lv':{const n=+v;for(let i=0;i<n&&S.pl.lv<MAXLV;i++)plGainXp(xpNeed(S.pl.lv)-S.pl.xp);S.hp=pMaxHp();break;}
-    case 'gm_heal':S.hp=pMaxHp();S.st=pMaxSt();S.hunger=100;if(player.mount)player.mount.hp=player.mount.maxHp;toast('💖 全回復した',2);break;
+    case 'gm_heal':S.hp=pMaxHp();S.formHp={};S.st=pMaxSt();S.hunger=100;if(player.mount)player.mount.hp=player.mount.maxHp;toast('💖 全回復した',2);break;
     case 'gm_inc':S.pl.inc=3;toast('🐣 体内孵化装置をLv3にした',2.5);break;
     case 'gm_off':S.gm=false;toast('GMモードを終了した（図鑑は捕食した竜だけの表示に戻る）',3);break;}
   recalcGear();saveGame();return true;}
-// 「データを初期化」の長押しでGMモード切替
-function bindLongPress(B){const b=B.querySelector('[data-act="reset"]');if(!b)return;const label=b.innerHTML;let tm=null,t2=null;
-  const clear=()=>{clearTimeout(tm);clearTimeout(t2);tm=t2=null;b.innerHTML=label;};
-  b.addEventListener('pointerdown',()=>{b._lp=false;t2=setTimeout(()=>{b.textContent='⏳ そのまま長押し…';},500);
-    tm=setTimeout(()=>{b._lp=true;clear();S.gm=!S.gm;saveGame();try{navigator.vibrate&&navigator.vibrate(60);}catch(e){}
-      toast(S.gm?'🛠 GMモードになった（設定タブにGMメニュー・図鑑は全種表示）':'GMモードを終了した',3);renderPanel();},1500);});
-  for(const ev of['pointerup','pointerleave','pointercancel'])b.addEventListener(ev,()=>{if(tm)clear();});
-  b.addEventListener('contextmenu',e=>e.preventDefault());b.style.webkitUserSelect='none';b.style.userSelect='none';b.style.webkitTouchCallout='none';
-  const oc=b.onclick;b.onclick=e=>{if(b._lp){b._lp=false;e.stopPropagation();return;}oc(e);};}
+// 設定の「影」と「野生ドラゴンの数」を同時に長押しすると、コード入力画面が出る（「GM」でGMモード）
+function bindLongPress(B){const bs=['shadow','wildmax'].map(k=>B.querySelector(`[data-act="${k}"]`));if(bs.some(b=>!b))return;
+  const held=new Set();let tm=null;const stop=()=>{clearTimeout(tm);tm=null;};
+  bs.forEach(b=>{b.style.webkitUserSelect='none';b.style.userSelect='none';b.style.webkitTouchCallout='none';b.style.touchAction='manipulation';
+    b.addEventListener('contextmenu',e=>e.preventDefault());
+    b.addEventListener('pointerdown',e=>{held.add(b);b._lp=false;if(held.size===2&&!tm)tm=setTimeout(()=>{tm=null;bs.forEach(x=>x._lp=true);held.clear();
+      try{navigator.vibrate&&navigator.vibrate(60);}catch(er){}gmCodeDialog();},1200);});
+    for(const ev of['pointerup','pointerleave','pointercancel'])b.addEventListener(ev,()=>{held.delete(b);if(held.size<2)stop();});
+    const oc=b.onclick;b.onclick=e=>{if(b._lp){b._lp=false;e.stopPropagation();return;}oc(e);};});}
+function gmCodeDialog(){let el=$('gmDlg');if(!el){el=document.createElement('div');el.id='gmDlg';el.style.cssText='position:fixed;inset:0;z-index:46;display:flex;align-items:center;justify-content:center;background:rgba(4,6,14,.72);padding:16px';document.body.appendChild(el);}
+  el.innerHTML=`<div class="rc" style="max-width:380px;width:100%;flex-direction:column;align-items:center;text-align:center;padding:22px 18px;gap:8px;background:var(--stone),#121a30">
+    <h3 style="margin:2px 0;color:#f4dc98;font-family:'Hiragino Mincho ProN','Yu Mincho',serif">コードを入力</h3>
+    <input id="gmCode" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="12" style="width:80%;font-size:20px;text-align:center;letter-spacing:.2em;padding:8px;border-radius:6px;border:2px solid #b8913e;background:#0b1224;color:#f4dc98">
+    <div id="gmMsg" style="font-size:12px;opacity:.75;min-height:16px"></div>
+    <div class="btns" style="justify-content:center;margin-top:4px"><button data-g="no">とじる</button><button class="on" data-g="ok">決定</button></div></div>`;
+  el.style.display='flex';const inp=el.querySelector('#gmCode');setTimeout(()=>inp.focus(),50);
+  for(const ev of['keydown','keyup','keypress'])inp.addEventListener(ev,e=>{e.stopPropagation();if(ev==='keydown'&&e.key==='Enter')ok();});
+  const close=()=>{inp.blur();el.style.display='none';};
+  const ok=()=>{const v=inp.value.normalize('NFKC').trim().toUpperCase();
+    if(v==='GM'){S.gm=!S.gm;saveGame();close();toast(S.gm?'🛠 GMモードになった（設定タブにGMメニュー・図鑑は全種表示）':'GMモードを終了した',3);renderPanel();}
+    else{el.querySelector('#gmMsg').textContent='コードがちがいます';inp.value='';}};
+  el.querySelector('[data-g="no"]').onclick=e=>{e.stopPropagation();close();};
+  el.querySelector('[data-g="ok"]').onclick=e=>{e.stopPropagation();ok();};}
+
+// ---- データ初期化：2段階の確認（ブラウザの確認ダイアログを使わない） ----
+function resetDialog(step){let el=$('resetDlg');if(!el){el=document.createElement('div');el.id='resetDlg';el.style.cssText='position:fixed;inset:0;z-index:45;display:flex;align-items:center;justify-content:center;background:rgba(4,6,14,.72);padding:16px';document.body.appendChild(el);}
+  const msg=step===1?['データを初期化しますか？','レベル・変身できる竜・図鑑・素材・強化など、これまでの冒険がすべて消えます。','初期化する']
+    :['本当によろしいですか？','この操作は元に戻せません。最初の草原から、まんまるスライム「しずく」としてやり直します。','完全に初期化する'];
+  el.innerHTML=`<div class="rc" style="max-width:420px;width:100%;flex-direction:column;align-items:center;text-align:center;padding:22px 18px;gap:6px;background:var(--stone),#121a30">
+    <div style="font-size:30px">${step===1?'🗑':'⚠'}</div><h3 style="margin:2px 0 4px;color:#f4dc98;font-family:'Hiragino Mincho ProN','Yu Mincho',serif">${msg[0]}</h3>
+    <div style="font-size:13px;line-height:1.7;opacity:.9">${msg[1]}</div><div style="font-size:11px;opacity:.6;margin-top:2px">確認 ${step}/2</div>
+    <div class="btns" style="justify-content:center;margin-top:12px"><button data-r="no">やめる</button><button class="danger${step===2?' on':''}" data-r="yes">${msg[2]}</button></div></div>`;
+  el.style.display='flex';
+  el.querySelector('[data-r="no"]').onclick=e=>{e.stopPropagation();el.style.display='none';};
+  el.querySelector('[data-r="yes"]').onclick=e=>{e.stopPropagation();if(step===1){resetDialog(2);return;}
+    window.RESETTING=true;try{localStorage.removeItem(SAVE_KEY);}catch(er){}el.innerHTML='<div style="color:#f4dc98;font-size:15px;letter-spacing:.2em">初期化しています…</div>';setTimeout(()=>location.reload(),300);};}
 // ================= 砂漠の偽の水たまり（ミラージュモウの待ち伏せ） =================
 const MIR={list:[],t:0,cd:0,hinted:false};
 const MIR_R=4.6;
@@ -3771,6 +4235,214 @@ function mirageAI(d,dt){const M=d.mirage;M.t-=dt;d.st.stun=Math.max(d.st.stun,0.
   if(M.t<=0&&!d.devouring&&!(player.devour&&player.devour.d===d)){fxs.burst(d.pos.x,d.pos.y+0.5,d.pos.z,50,[0.9,0.78,0.55],6,1.2,0.35,10);
     if(M.state==='stranded')toast('ミラージュモウは砂に潜って逃げてしまった…',3);d._remove=true;M.t=99;}
   return true;}
+// ================= 群れでできた竜（レギオンドラゴン） =================
+const SW_SLOTS=(()=>{const R=mulberry(4242);const out=[];const add=(n,part,f)=>{for(let i=0;i<n;i++)out.push({p:f(i/n,R),part,ph:R()*TAU});};
+  const ball=(cx,cy,cz,rx,ry,rz)=>(u,r)=>{const a=r()*TAU,b=Math.acos(r()*2-1),k=Math.cbrt(r());return [cx+Math.sin(b)*Math.cos(a)*rx*k,cy+Math.cos(b)*ry*k,cz+Math.sin(b)*Math.sin(a)*rz*k];};
+  add(34,'head',ball(0,1.7,4.6,0.75,0.6,1.0));add(10,'head',(u,r)=>[(r()-0.5)*0.6,1.25,5.2+u*0.6]);// 頭とあご
+  for(const sd of[-1,1])add(7,'head',(u)=>[sd*(0.35+u*0.4),2.1+u*1.0,4.2-u*1.4]);// 角
+  add(22,'neck',(u,r)=>[(r()-0.5)*0.6,1.6-u*0.4+(r()-0.5)*0.4,3.7-u*1.9]);
+  add(64,'body',ball(0,1.0,0,1.15,0.9,1.9));
+  for(const sd of[-1,1])add(42,sd>0?'wingR':'wingL',(u,r)=>{const a=r(),b=r()*(1-a*0.6);return [sd*(0.8+a*5.2),1.5+a*1.2,0.9-a*1.6-b*2.6];});
+  add(52,'tail',(u,r)=>[(r()-0.5)*0.7*(1-u),0.9-u*0.5+(r()-0.5)*0.4*(1-u),-1.8-u*6.2]);
+  return out;})();
+let SW_GEO=null,SW_MAT=null;const SWARMS=[];
+function swGeo(){if(SW_GEO)return SW_GEO;const gb=new GB();gb.add(P_bicone(5),{s:[0.09,0.2,0.09],r:[Math.PI/2,0,0],c:0x4a3a78});gb.add(P_sphere(4,3),{s:0.07,t:[0,0.02,0.12],c:0x3a2a60});
+  for(const sd of[-1,1])gb.tri([0,0.02,0.02],[sd*0.26,0.06,-0.04],[0,0.02,-0.12],0xb8a8f0);gb.add(P_sphere(3,2),{s:0.035,t:[0,0,-0.14],c:0xfff0a0,glow:false});
+  SW_GEO=gb.geo();SW_MAT=new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide,emissive:0x1a1030});return SW_GEO;}
+const _swM=new THREE.Matrix4(),_swQ=new THREE.Quaternion(),_swE=new THREE.Euler(),_swS=new THREE.Vector3(),_swP=new THREE.Vector3();
+class Swarm{constructor(d){this.d=d;const n=SW_SLOTS.length;this.n=n;this.mesh=new THREE.InstancedMesh(swGeo(),SW_MAT,n);this.mesh.frustumCulled=false;
+    const c=new THREE.Color();for(let i=0;i<n;i++){c.setHSL(0.72+Math.random()*0.08,0.45,0.55+Math.random()*0.2);this.mesh.setColorAt(i,c);}this.mesh.instanceColor.needsUpdate=true;scene.add(this.mesh);
+    this.pos=new Float32Array(n*3);this.vel=new Float32Array(n*3);this.st=new Float32Array(n).fill(1);this.t=Math.random()*10;this.hitCd=1;this.dying=0;this.lastBite=0;
+    d.hoverH=1.05*this.scale()+0.25;for(let i=0;i<n;i++){this.pos[i*3]=d.pos.x+rnd(-6,6);this.pos[i*3+1]=d.pos.y+rnd(0,4);this.pos[i*3+2]=d.pos.z+rnd(-6,6);}SWARMS.push(this);}
+  scale(){return [0.6,0.8,1.0,1.25][this.d.stage]*(this.d.isMount?0.9:1);}
+  ratio(){let a=0;for(let i=0;i<this.n;i++)if(this.st[i]>0)a++;return a/this.n;}
+  scatter(frac,perm){let k=Math.round(this.n*frac);const ids=[];for(let i=0;i<this.n;i++)if(this.st[i]>0)ids.push(i);
+    while(k-->0&&ids.length){const j=ids.splice(Math.floor(Math.random()*ids.length),1)[0];this.st[j]=perm?-999:-rnd(6,11);const a=Math.random()*TAU;
+      this.vel[j*3]+=Math.cos(a)*rnd(5,10);this.vel[j*3+1]+=rnd(2,7);this.vel[j*3+2]+=Math.sin(a)*rnd(5,10);}}
+  baseY(){const s=this.scale();return this.d.pos.y+this.d.hoverH*this.d.fb-1.0*s;}
+  headPos(out){const s=this.scale(),y=this.d.yaw,c=Math.cos(y),sn=Math.sin(y);return out.set(this.d.pos.x+sn*4.8*s,this.baseY()+1.6*s,this.d.pos.z+c*4.8*s);}
+  update(dt){const d=this.d;this.t+=dt;const s=this.scale(),y=d.yaw,c=Math.cos(y),sn=Math.sin(y);const flap=Math.sin(this.t*3.2);
+    const gone=d.dead||d.devouring||(d.rig&&d.rig._gone);if(gone&&!this.dying){this.dying=3;this.scatter(1,true);}
+    if(this.dying){this.dying-=dt;}
+    if(d.weak>0&&!this.weakSc){this.weakSc=true;this.scatter(0.6);}
+    const ox=d.pos.x,oy=this.baseY(),oz=d.pos.z;const M=this.mesh;const fly=d.flying||d.sp.float;
+    for(let i=0;i<this.n;i++){const S0=SW_SLOTS[i];let [lx,ly,lz]=S0.p;
+      if(S0.part==='wingL'||S0.part==='wingR'){const k=Math.abs(lx)/6;ly+=flap*k*2.4*(fly?1:0.5);}
+      if(S0.part==='tail'){const k=-(lz+1.8)/6.2;lx+=Math.sin(this.t*2-k*3)*k*1.4;}
+      lx+=Math.sin(this.t*2.3+S0.ph)*0.18;ly+=Math.cos(this.t*1.9+S0.ph*1.3)*0.18;
+      const tx=ox+(lx*c+lz*sn)*s,ty=oy+ly*s,tz=oz+(-lx*sn+lz*c)*s;const j=i*3;
+      if(this.st[i]>0){const k=9;this.vel[j]+=(tx-this.pos[j])*k*dt;this.vel[j+1]+=(ty-this.pos[j+1])*k*dt;this.vel[j+2]+=(tz-this.pos[j+2])*k*dt;const dmp=Math.exp(-dt*5);this.vel[j]*=dmp;this.vel[j+1]*=dmp;this.vel[j+2]*=dmp;}
+      else{this.st[i]+=dt;this.vel[j+1]-=dt*1.5;const dmp=Math.exp(-dt*1.2);this.vel[j]*=dmp;this.vel[j+2]*=dmp;if(this.st[i]>0&&gone)this.st[i]=-999;}
+      this.pos[j]+=this.vel[j]*dt;this.pos[j+1]+=this.vel[j+1]*dt;this.pos[j+2]+=this.vel[j+2]*dt;
+      const vx=this.vel[j],vz=this.vel[j+2];const ya=Math.hypot(vx,vz)>0.3?Math.atan2(vx,vz):y;_swE.set(clamp(-this.vel[j+1]*0.08,-0.8,0.8),ya,0);_swQ.setFromEuler(_swE);
+      const vis=this.st[i]>0?1:this.st[i]<-900?Math.max(0,this.dying/3):clamp(1+this.st[i]*0.1,0.4,1);const sc=(0.75+0.25*s)*vis*(1+(this.st[i]>0?0:0));
+      _swS.set(sc*(0.7+0.5*Math.abs(Math.sin(this.t*18+S0.ph))),sc,sc);_swP.set(this.pos[j],this.pos[j+1],this.pos[j+2]);_swM.compose(_swP,_swQ,_swS);M.setMatrixAt(i,_swM);}
+    M.instanceMatrix.needsUpdate=true;
+    if(gone)return;
+    // 群れの頭でかみつく
+    this.hitCd-=dt;const head=this.headPos(_swP);
+    if(d.team==='wild'&&d.ai&&d.ai.state==='chase'&&!(d.weak>0)&&this.ratio()>0.25&&this.hitCd<=0){const P=player.mount||player;const r=P.isPlayer?0.6:P.radius;
+      if(head.distanceTo(P.pos)<2.4*s+r+0.6){this.hitCd=1.4;hitEnt(d,player,d.atk*1.1*this.ratio(),d.sp.el);fxs.burst(head.x,head.y,head.z,16,[0.7,0.6,1],4,0.5,0.2,0);}}
+    if(d.isMount&&d.anim.bite>0.95&&this.t-this.lastBite>0.4){this.lastBite=this.t;for(const w of game.wild){if(w.dead)continue;if(w.pos.distanceTo(head)<3.2*s+w.radius){hitEnt(d,w,d.atk*0.9,d.sp.el);}}}}
+  dispose(){scene.remove(this.mesh);this.mesh.dispose&&this.mesh.dispose();}}
+function swarmTick(dt){for(const sw of SWARMS)sw.update(dt);
+  for(let i=SWARMS.length-1;i>=0;i--){const sw=SWARMS[i];if(sw.dying&&sw.dying<=0){sw.dispose();SWARMS.splice(i,1);}}}
+// ダメージ：群れが厚いうちは核を守る
+function swarmGuard(d,dmg){const sw=d.swarm;if(!sw||sw.dying)return dmg;const r=sw.ratio();
+  if(d.team==='wild'){if(r>0.4){sw.scatter(0.1);if(!game.swHint){game.swHint=true;toast('群れが核を守っている！ 何度もぶつかって群れを散らせば、光る核がむき出しになる',4);}return dmg*0.3;}
+    if(!sw.exposed){sw.exposed=true;toast('群れが散って、光る核がむき出しになった！',2.5);}return dmg;}
+  if(d.isMount&&r>0.4){sw.scatter(0.04);return dmg*0.6;}return dmg;}
+// ================= 家畜・野生の小動物（食べると肉になる） =================
+const FAUNA={
+  cow:{n:'牛',biomes:['meadow','forest','lake','flowerhills','sakura'],meat:3,spd:1.0,flee:2.8,len:2.6},
+  sheep:{n:'羊',biomes:['meadow','snow','lake','flowerhills','tundra'],meat:2,spd:1.0,flee:3.0,len:1.6},
+  boar:{n:'イノシシ',biomes:['forest','swamp','desert','autumn','mushroom','canyon'],meat:3,spd:1.6,flee:4.4,len:2.0},
+};
+const FAUNA_GEO={};
+// 脚：太いもも→ひざ→細いすね→ひづめ（腰の高さ hy から地面まで、上端は胴の中に埋める）
+function faunaLeg(leg,hy,r,col,hoof,fur){const up=hy*0.5,lo=hy-up;leg.along(P_cyl(0.75,1,6),[0,0.12,0],[0,-1,0],up+0.12,[r,r*1.15],fur||col);
+  leg.add(P_sphere(5,4),{s:[r*0.62,r*0.7,r*0.66],t:[0,-up,r*0.08],c:col});leg.along(P_cyl(0.85,1,5),[0,-up,r*0.08],[0,-1,-0.06],lo-r*0.5,[r*0.48,r*0.5],col);
+  leg.add(P_cyl(0.8,1,6),{s:[r*0.55,r*0.45,r*0.62],t:[0,-hy+r*0.22,r*0.12],c:hoof});}
+function faunaGeo(t){if(FAUNA_GEO[t])return FAUNA_GEO[t];const b=new GB(),leg=new GB(),legB=new GB();
+  if(t==='cow'){const spot=(l,w)=>l[1]<-0.55?0xe8ddd0:(vnoise(w[0]*2.6+3,w[2]*2.2+w[1]*1.6)>0.18?0x1e1a18:0xf4f0e8);
+    b.add(P_sphere(10,7),{s:[0.46,0.5,0.92],t:[0,1.04,0],c:spot});b.add(P_sphere(8,6),{s:[0.45,0.54,0.42],t:[0,1.1,0.52],c:spot});b.add(P_sphere(8,6),{s:[0.47,0.5,0.4],t:[0,1.08,-0.58],c:spot});
+    b.add(P_sphere(8,5),{s:[0.42,0.36,0.7],t:[0,0.86,0],c:spot});for(const sd of[-1,1])b.add(P_sphere(5,4),{s:[0.1,0.08,0.08],t:[sd*0.24,1.48,-0.78],c:0xf4f0e8});
+    b.along(P_cyl(0.85,1,8),[0,1.08,0.72],[0,0.25,1],0.5,[0.26,0.3],spot);b.add(P_sphere(6,4),{s:[0.13,0.3,0.3],t:[0,0.82,0.85],c:0xf0e8dc});
+    b.along(P_cyl(0.68,1,8),[0,1.32,1.12],[0,-0.6,1],0.56,[0.17,0.22],(l,w)=>l[2]>0.45?0xf4f0e8:spot(l,w));
+    b.add(P_sphere(7,5),{s:[0.17,0.15,0.13],t:[0,1.0,1.56],c:0xd8a8a0});for(const sd of[-1,1]){b.add(P_sphere(3,2),{s:0.028,t:[sd*0.07,1.02,1.67],c:0x3a2020});
+      b.add(P_sphere(4,3),{s:[0.04,0.045,0.04],t:[sd*0.17,1.3,1.2],c:0x101010});b.along(P_sphere(5,3),[sd*0.16,1.36,1.08],[sd*1,0.1,-0.25],0.24,[0.08,0.025],0xf4f0e8);
+      b.tube([[sd*0.1,1.44,1.08],[sd*0.2,1.5,1.06],[sd*0.26,1.6,1.12]],0.035,0.012,4,0xe8dcc0);}
+    b.add(P_sphere(6,4),{s:[0.17,0.13,0.17],t:[0,0.66,-0.42],c:0xe8b0a8});for(const sd of[-1,1])for(const z of[-0.36,-0.48])b.along(P_cone(4),[sd*0.06,0.56,z],[0,-1,0],0.06,0.02,0xe0a098);
+    b.tube([[0,1.42,-0.96],[0,1.2,-1.06],[0,0.9,-1.08],[0,0.66,-1.05]],0.03,0.022,4,0x1e1a18);b.add(P_sphere(5,3),{s:[0.06,0.12,0.06],t:[0,0.6,-1.05],c:0x1e1a18});
+    faunaLeg(leg,1.0,0.12,0xf4f0e8,0x2a2420,spot);faunaLeg(legB,1.0,0.13,0xf4f0e8,0x2a2420,spot);}
+  else if(t==='sheep'){for(let i=0;i<12;i++){const a=i/12*TAU;b.add(P_sphere(5,4),{s:0.28,t:[Math.cos(a)*0.32,0.98+Math.sin(i*1.7)*0.14,Math.sin(a)*0.52],c:i%2?0xfaf6ec:0xece4d4});}
+    b.add(P_sphere(8,6),{s:[0.46,0.44,0.68],t:[0,0.94,0],c:0xf6f0e2});b.along(P_cyl(0.7,1,6),[0,1.04,0.62],[0,-0.3,1],0.36,[0.13,0.16],0x3e3832);
+    b.add(P_sphere(6,4),{s:0.24,t:[0,1.2,0.6],c:0xfaf6ec});for(const sd of[-1,1]){b.add(P_sphere(4,3),{s:0.035,t:[sd*0.12,1.08,0.8],c:0x101010});b.along(P_sphere(5,3),[sd*0.14,1.08,0.66],[sd*1,-0.4,-0.1],0.2,[0.06,0.02],0x3e3832);}
+    faunaLeg(leg,0.78,0.07,0x3e3832,0x1a1612,0xece4d4);faunaLeg(legB,0.78,0.075,0x3e3832,0x1a1612,0xece4d4);}
+  else{const fur=(l,w)=>l[1]<-0.5?0x7a5e48:(hash3(w)>0.66?0x4a3424:(hash3(w)>0.33?0x5a4030:0x3a281c));
+    b.add(P_sphere(9,7),{s:[0.36,0.5,0.5],t:[0,0.84,0.28],c:fur});b.add(P_sphere(9,6),{s:[0.34,0.42,0.6],t:[0,0.76,-0.05],c:fur});b.add(P_sphere(8,6),{s:[0.31,0.37,0.38],t:[0,0.7,-0.42],c:fur});
+    b.along(P_cyl(0.5,1,8),[0,0.86,0.62],[0,-0.42,1],0.62,[0.2,0.27],fur);b.add(P_cyl(1,1,8),{s:[0.1,0.03,0.085],r:[Math.PI/2,0,0],t:[0,0.6,1.19],c:0xb88a7a});
+    for(const sd of[-1,1]){b.add(P_sphere(3,2),{s:0.02,t:[sd*0.04,0.6,1.21],c:0x201010});b.add(P_sphere(4,3),{s:0.032,t:[sd*0.15,0.88,0.84],c:0x0a0a0a});
+      b.tube([[sd*0.08,0.6,1.04],[sd*0.14,0.62,1.1],[sd*0.17,0.72,1.1],[sd*0.15,0.8,1.04]],0.026,0.008,4,0xfff4dc);b.along(P_cone(4),[sd*0.14,1.02,0.66],[sd*0.35,1,-0.35],0.17,[0.07,0.03],0x2a1a10);}
+    for(let i=0;i<9;i++)b.along(P_cone(3),[0,1.24-i*0.03,0.6-i*0.12],[0,1,-0.5],0.16-i*0.008,0.045,0x1e140c);
+    b.tube([[0,0.9,-0.75],[0,0.78,-0.82],[0,0.62,-0.8]],0.02,0.012,3,0x3a281c);b.add(P_sphere(4,3),{s:[0.03,0.06,0.03],t:[0,0.6,-0.8],c:0x1e140c});
+    faunaLeg(leg,0.72,0.085,0x3a281c,0x1a120c,fur);faunaLeg(legB,0.66,0.085,0x3a281c,0x1a120c,fur);}
+  FAUNA_GEO[t]={body:b.geo(),leg:leg.geo(),legB:legB.geo()};return FAUNA_GEO[t];}
+const FA={list:[],t:0};
+class Animal{constructor(t,x,z){this.t=t;this.T=FAUNA[t];const G=faunaGeo(t);this.g=new THREE.Group();scene.add(this.g);this.body=new THREE.Mesh(G.body,MAT.body);this.body.castShadow=false;this.g.add(this.body);
+    const L={cow:{hy:1.0,hy2:1.0,zf:0.55,zb:-0.6,hx:0.26},sheep:{hy:0.78,hy2:0.78,zf:0.36,zb:-0.38,hx:0.2},boar:{hy:0.72,hy2:0.66,zf:0.36,zb:-0.4,hx:0.17}}[t];
+    this.legs=[];for(const [sx,front] of[[-1,1],[1,1],[-1,0],[1,0]]){const m=new THREE.Mesh(front?G.leg:G.legB,MAT.body);m.position.set(sx*L.hx,front?L.hy:L.hy2,front?L.zf:L.zb);this.g.add(m);this.legs.push(m);}
+    this.pos=new THREE.Vector3(x,H(x,z),z);this.yaw=Math.random()*TAU;this.state='graze';this.tm=rnd(2,6);this.ph=0;this.spd=0;this.scale=(t==='cow'?rnd(1.0,1.12):rnd(0.9,1.05))*0.5;this.g.scale.setScalar(this.scale);}
+  update(dt){const P=player.mount||player;const dp=Math.hypot(P.pos.x-this.pos.x,P.pos.z-this.pos.z);this.tm-=dt;
+    const scary=player.mount?8+player.mount.S*2:2.2;
+    if(dp<scary&&this.state!=='flee'){this.state='flee';this.tm=rnd(2.5,4);}
+    if(this.state==='flee'){const a=Math.atan2(this.pos.x-P.pos.x,this.pos.z-P.pos.z);this.yaw=lerpAngle(this.yaw,a,1-Math.exp(-dt*5));this.spd=lerp(this.spd,this.T.flee,1-Math.exp(-dt*4));if(this.tm<=0&&dp>scary+4){this.state='graze';this.tm=rnd(2,5);}}
+    else if(this.state==='walk'){this.spd=lerp(this.spd,this.T.spd,1-Math.exp(-dt*3));this.yaw+=Math.sin(FA.t*0.7+this.pos.x)*dt*0.6;if(this.tm<=0){this.state='graze';this.tm=rnd(3,7);}}
+    else{this.spd=lerp(this.spd,0,1-Math.exp(-dt*4));if(this.tm<=0){this.state='walk';this.tm=rnd(2,5);this.yaw+=rnd(-1.5,1.5);}}
+    const nx=this.pos.x+Math.sin(this.yaw)*this.spd*dt,nz=this.pos.z+Math.cos(this.yaw)*this.spd*dt;const h=H(nx,nz);
+    if(inWorld(nx,nz)&&h>WATER_Y-0.1&&!lavaAt(nx,nz)&&Math.abs(h-this.pos.y)<0.8){this.pos.x=nx;this.pos.z=nz;this.pos.y=h;}else{this.yaw+=Math.PI*0.6;}
+    this.ph+=dt*this.spd*4.2/Math.max(0.4,this.scale*1.4);const sw=Math.min(1,this.spd/1.2)*0.6;this.legs.forEach((m,i)=>{m.rotation.x=Math.sin(this.ph+(i===0||i===3?0:Math.PI))*sw;});
+    const graze=this.state==='graze'?Math.max(0,Math.sin(FA.t*0.8+this.pos.z)):0;this.body.rotation.x=graze*0.18;this.body.position.y=Math.abs(Math.sin(this.ph))*0.04*sw;
+    this.g.position.copy(this.pos);this.g.rotation.y=this.yaw;}
+  dispose(){scene.remove(this.g);}}
+function faunaTick(dt){FA.t+=dt;const P=player.mount||player;
+  for(const a of FA.list)a.update(dt);
+  FA.list=FA.list.filter(a=>{if(a.gone||Math.hypot(a.pos.x-P.pos.x,a.pos.z-P.pos.z)>130){a.dispose();return false;}return true;});
+  FA.spawnT=(FA.spawnT||0)-dt;if(FA.spawnT<=0&&FA.list.length<9&&zoneOf(P.pos.x)==='surface'){FA.spawnT=2.5;
+    for(let k=0;k<10;k++){const a=Math.random()*TAU,r=rnd(28,75);const x=P.pos.x+Math.cos(a)*r,z=P.pos.z+Math.sin(a)*r;if(!inWorld(x,z)||H(x,z)<0.4||lavaAt(x,z))continue;
+      const b=biomeAt(x,z);const types=Object.keys(FAUNA).filter(t=>FAUNA[t].biomes.includes(b));if(!types.length)continue;const t=types[Math.floor(Math.random()*types.length)];
+      const n=t==='sheep'?3:t==='cow'?2:1;for(let i=0;i<n&&FA.list.length<11;i++)FA.list.push(new Animal(t,x+rnd(-3,3),z+rnd(-3,3)));break;}}}
+function nearAnimal(p,r){let best=null,bd=r;for(const a of FA.list){const d=Math.hypot(a.pos.x-p.x,a.pos.z-p.z)-a.T.len*0.4*a.scale;if(d<bd){bd=d;best=a;}}return best;}
+function eatAnimal(a){a.gone=true;const P=player.mount||player;const n=addItem('meat',a.T.meat+(player.mount?1:0));S.hunger=Math.min(100,S.hunger+12);player.eatT=0.5;player.qv+=5;
+  fxs.burst(a.pos.x,a.pos.y+0.8,a.pos.z,20,[0.9,0.85,0.8],3,0.6,0.2,6);toast(`🍖 ${a.T.n}をぱくり！ 生肉×${n}`,2);}
+// ================= 擬態竜：岩や切り株などにばけて、その場から動かない =================
+function camoReveal(d,silent){if(!d.camoHidden)return;d.camoHidden=false;d.camoT=0;d.anim.roar=1;d.ai.state='chase';
+  d.center(_v);fxs.burst(_v.x,_v.y,_v.z,26,spCol(d.sp),4,0.7,0.25,6);if(!silent)toast(`！ ${d.sp.camo}だと思ったら、${d.sp.name}だった！`,3);}
+function camoAI(d,dt){const P=player.mount||player;if(d.camoHidden===undefined){d.camoHidden=true;d.camoT=0;d.yaw=Math.random()*TAU;}
+  d.drive(0,0,0,dt);d.flying=false;d.speed=0;
+  const dist=d.pos.distanceTo(P.pos)-d.radius;
+  if(d.camoHidden){d.anim.collapse=lerp(d.anim.collapse,0.72,1-Math.exp(-dt*3));d.st.stun=Math.max(d.st.stun,0.2);
+    if(!player.dead&&dist<2.6+d.S*0.6)camoReveal(d);return true;}
+  // 正体を現したあとも、その場から動かない（向きだけ変えてかみつく）
+  d.anim.collapse=lerp(d.anim.collapse,0,1-Math.exp(-dt*4));if(d.weak>0)return true;
+  _v.copy(P.pos).sub(d.pos);d.yaw=lerpAngle(d.yaw,Math.atan2(_v.x,_v.z),1-Math.exp(-dt*5));
+  if(!player.dead&&dist<1.8+d.S*1.2)tryBite(d,player);
+  else if(!player.dead&&dist<9+d.S*2&&d.stage>=2&&d.cd.breath<=0&&Math.random()<dt*0.5)castBreath(d,player);
+  if(dist>14){d.camoT+=dt;if(d.camoT>6){d.camoHidden=true;d.ai.state='wander';}}else d.camoT=0;
+  return true;}
+// ===== 暴走モード（変身中のみ・長押しで発動） =====
+const RAGE_T=15,RAGE_HOLD=1.2,RAGE_RING=207.3;let rageHold=0,rageHeld=false,rageInit=false;
+function rageBind(){const b=$('bRage');if(!b||rageInit)return;rageInit=true;applyLayout();
+  const dn=e=>{e.preventDefault();e.stopPropagation();rageHeld=true;},up=e=>{e.stopPropagation();rageHeld=false;};
+  b.addEventListener('touchstart',dn,{passive:false});b.addEventListener('mousedown',dn);
+  for(const ev of['touchend','touchcancel','mouseup','mouseleave'])b.addEventListener(ev,up);b.addEventListener('contextmenu',e=>e.preventDefault());}
+function startRage(){const m=player.mount;if(!m||game.rampage)return;
+  game.rampage={m,t:RAGE_T,st:S.st};m.atk*=1.5;m.def*=2;m.rampage=true;m.hp=Math.max(m.hp,m.maxHp*0.5);m.anim.roar=1.6;game.assist=null;
+  try{navigator.vibrate&&navigator.vibrate([80,40,120]);}catch(e){}m.center(_v);fxs.burst(_v.x,_v.y,_v.z,70,[1,0.25,0.1],8,1.4,0.4,1);
+  toast(`💢 ${m.sp.name}が暴走した！ 15秒間、攻撃力と攻撃速度が1.5倍になって勝手に戦う…`,3);}
+function endRage(){const R=game.rampage;game.rampage=null;const m=R&&R.m;if(!m||player.mount!==m)return;m.rampage=false;
+  const id=m.sp.id,nm=m.sp.name;m.center(_v);fxs.burst(_v.x,_v.y,_v.z,60,[0.5,0.1,0.1],5,1.2,0.4,-1);
+  revert(true);delete S.forms[id];if(S.formHp)delete S.formHp[id];if(S.lastForm===id)S.lastForm=null;S.st=0;S.hp=Math.max(1,Math.round(S.hp*0.5));game.exhaustT=25;game.assist=null;
+  toast(`💔 暴走の反動で${nm}の体が崩れ去った…この変身は失われ、しずくはHPが半分・へとへとでスタミナの回復が遅い…（変身はもう一度捕食すれば取り戻せる）`,5);saveGame();}
+function rageAuto(m,dt){if(game.assist&&game.assist.m===m)return;const t=pickAssistTarget(m,70+m.S*4);if(!t)return;
+  entCenter(t,_aq);m.center(_am);const dist=_aq.distanceTo(_am)-(t.radius||0.4);
+  if(m.stage>=2&&m.cd.breath<=0&&dist>4+m.S){startAssist(m,t,'breath');m.yaw=Math.atan2(_aq.x-m.pos.x,_aq.z-m.pos.z);castBreath(m,t);return;}
+  if(m.cd.bite<=0&&dist<14+m.S*3){startAssist(m,t,'bite');return;}
+  // 遠い相手には自分から突っ込んでいく
+  const dx=_aq.x-m.pos.x,dz=_aq.z-m.pos.z,hd=Math.hypot(dx,dz)||1;m.yaw=lerpAngle(m.yaw,Math.atan2(dx,dz),1-Math.exp(-dt*8));
+  if(dist>2+m.S){const step=Math.min((10+m.S*2.5)*dt,dist);const nx=m.pos.x+dx/hd*step,nz=m.pos.z+dz/hd*step;if(inWorld(nx,nz)){m.pos.x=nx;m.pos.z=nz;m.speed=Math.max(m.speed,7);}}
+  if(m.canFly()&&_aq.y-m.pos.y>3+m.S&&!m.flying){m.flying=true;m.flyH=Math.max(m.flyH||0,4);}}
+function rageTick(dt){rageBind();if(game.exhaustT>0)game.exhaustT-=dt;const b=$('bRage'),fx=$('rageFx'),tx=$('rageT'),R=game.rampage;
+  if(R&&(player.mount!==R.m||R.m.dead||player.dead)){game.rampage=null;if(R.m)R.m.rampage=false;}
+  const show=!!player.mount&&!game.rampage&&!player.dead&&!panelOpen&&!layEdit;b.classList.toggle('show',show);
+  if(show){if(rageHeld){rageHold+=dt;if(rageHold>=RAGE_HOLD){rageHold=0;rageHeld=false;startRage();}}else rageHold=Math.max(0,rageHold-dt*2);}else{rageHold=0;rageHeld=false;}
+  b.classList.toggle('go',rageHold>0);$('rageRing').setAttribute('stroke-dashoffset',(RAGE_RING*(1-rageHold/RAGE_HOLD)).toFixed(1));
+  const G=game.rampage;document.body.classList.toggle('raging',!!G);fx.style.display=G?'block':'none';tx.style.display=G?'block':'none';if(!G)return;
+  G.t-=dt;S.st=G.st;const m=G.m;m.cd.bite=Math.max(0,m.cd.bite-dt*0.5);m.cd.breath=Math.max(0,m.cd.breath-dt*0.5);
+  tx.textContent=`暴走 ${Math.max(0,G.t).toFixed(1)}`;
+  if(!panelOpen)rageAuto(m,dt);
+  if(Math.random()<dt*40){m.center(_am);fx2Spawn(_am,m.S);}
+  if(G.t<=0)endRage();}
+function fx2Spawn(p,s){fx.spawn(p.x+rnd(-1,1)*s*0.6,p.y+rnd(-0.5,0.8)*s*0.5,p.z+rnd(-1,1)*s*0.6,rnd(-1,1),rnd(2,4),rnd(-1,1),0.5,0.18*Math.max(1,s*0.6),[1,rnd(0.1,0.35),0.05],0,0.6);}
+// ===== 操作設定：ボタンの配置・大きさ =====
+const LAY_IDS=[['bAtk','攻撃'],['bInt','調べる'],['bSkill','ブレス'],['bJump','ジャンプ'],['bRide','変身'],['altBtns','高度▲▼'],['bRage','暴走']];
+const LAY_SIZES=[[0.8,'小'],[1,'標準'],[1.2,'大'],[1.4,'特大']];
+let layEdit=null;
+function layOpt(){if(!S.opt.lay)S.opt.lay={};if(!S.opt.btnScale)S.opt.btnScale=1;return S.opt.lay;}
+function applyLayout(){const L=layOpt();for(const [id] of LAY_IDS){const el=$(id);if(!el)continue;const o=L[id]||{};
+  el.style.translate=`${o.x||0}px ${o.y||0}px`;el.style.scale=String(S.opt.btnScale*(o.s||1));}}
+function layScaleName(){const f=LAY_SIZES.find(z=>Math.abs(z[0]-S.opt.btnScale)<0.01);return f?f[1]:'標準';}
+function tabControls(){layOpt();return `<div class="set"><h4>⚙ 操作設定</h4><p class="note">ボタンの大きさを変えたり、好きな位置にドラッグして動かしたりできる。</p>
+  <div class="btns"><button data-act="lay_size">ボタンの大きさ：${layScaleName()}</button><button data-act="lay_edit">✋ ボタンの配置を編集</button><button data-act="lay_reset" class="danger">配置を元に戻す</button></div></div>`;}
+function layAct(act){if(!act.startsWith('lay_'))return undefined;layOpt();
+  if(act==='lay_size'){const i=LAY_SIZES.findIndex(z=>Math.abs(z[0]-S.opt.btnScale)<0.01);S.opt.btnScale=LAY_SIZES[(i+1)%LAY_SIZES.length][0];applyLayout();}
+  else if(act==='lay_reset'){S.opt.lay={};S.opt.btnScale=1;applyLayout();toast('ボタンの配置と大きさを元に戻した',2);}
+  else if(act==='lay_edit'){closePanel();setTimeout(layStart,60);}
+  saveGame();return true;}
+function layStart(){if(layEdit)return;document.body.classList.add('layEdit');layEdit={sel:null,drag:null};
+  let bar=$('layBar');if(!bar){bar=document.createElement('div');bar.id='layBar';document.body.appendChild(bar);}
+  layBarDraw();applyLayout();
+  const pt=e=>{const t=e.touches?e.touches[0]||e.changedTouches[0]:e;return [t.clientX,t.clientY];};
+  const pick=el=>{for(const [id] of LAY_IDS){const b=$(id);if(b&&(b===el||b.contains(el)))return id;}return null;};
+  layEdit.down=e=>{if(bar.contains(e.target))return;e.preventDefault();e.stopPropagation();const id=pick(e.target);if(!id)return;
+    const o=layOpt()[id]||{};const [x,y]=pt(e);layEdit.sel=id;layEdit.drag={id,x0:x,y0:y,ox:o.x||0,oy:o.y||0};layBarDraw();layMark();};
+  layEdit.move=e=>{const D=layEdit.drag;if(!D)return;e.preventDefault();e.stopPropagation();const [x,y]=pt(e);const L=layOpt();const o=L[D.id]||(L[D.id]={});
+    o.x=Math.round(D.ox+x-D.x0);o.y=Math.round(D.oy+y-D.y0);applyLayout();};
+  layEdit.up=e=>{if(layEdit.drag){e.stopPropagation();layEdit.drag=null;}};
+  for(const [ev,f] of [['touchstart','down'],['mousedown','down'],['touchmove','move'],['mousemove','move'],['touchend','up'],['mouseup','up']])
+    document.addEventListener(ev,layEdit[f],{capture:true,passive:false});
+  toast('ボタンをドラッグして動かそう。選んだボタンは＋－で大きさを変えられる',3);}
+function layMark(){for(const [id] of LAY_IDS){const b=$(id);if(b)b.classList.toggle('laySel',layEdit&&layEdit.sel===id);}}
+function layBarDraw(){const bar=$('layBar');if(!bar||!layEdit)return;const id=layEdit.sel;const nm=id?LAY_IDS.find(z=>z[0]===id)[1]:'';const s=id?((layOpt()[id]||{}).s||1):1;
+  bar.innerHTML=`<div class="lt">${id?`「${nm}」 大きさ ${Math.round(s*100)}%`:'動かしたいボタンをドラッグ'}</div>
+   <div class="btns"><button data-l="minus" ${id?'':'disabled'}>－</button><button data-l="plus" ${id?'':'disabled'}>＋</button><button data-l="one" ${id?'':'disabled'}>このボタンを戻す</button><button data-l="done" class="on">完了</button></div>`;
+  bar.querySelectorAll('[data-l]').forEach(b=>b.onclick=e=>{e.stopPropagation();const L=layOpt();const k=b.dataset.l;
+    if(k==='done'){layEnd();return;}if(!id)return;const o=L[id]||(L[id]={});
+    if(k==='plus')o.s=Math.min(2,Math.round(((o.s||1)+0.1)*10)/10);else if(k==='minus')o.s=Math.max(0.5,Math.round(((o.s||1)-0.1)*10)/10);else if(k==='one')delete L[id];
+    applyLayout();layBarDraw();});}
+function layEnd(){if(!layEdit)return;for(const [ev,f] of [['touchstart','down'],['mousedown','down'],['touchmove','move'],['mousemove','move'],['touchend','up'],['mouseup','up']])
+    document.removeEventListener(ev,layEdit[f],{capture:true});
+  layEdit=null;layMark();document.body.classList.remove('layEdit');const bar=$('layBar');if(bar)bar.remove();saveGame();toast('ボタンの配置を保存した',1.5);}
 // ================= 初期化 =================
 let player=null,biomeGridG=null;
 const SKY_NIGHT=0x141a38;const _sunDir=new THREE.Vector3();const _camT=new THREE.Vector3();const _skyC=new THREE.Color();const _tmpC=new THREE.Color();
@@ -3792,7 +4464,7 @@ function init(){
   const sc=sun.shadow.camera;sc.left=-26;sc.right=26;sc.top=26;sc.bottom=-26;sc.near=5;sc.far=140;sun.shadow.bias=-0.0015;scene.add(sun);scene.add(sun.target);
   onResize();
   initMaterials();
-  biomeGridG=buildTerrain(scene);buildEnvironment(scene,biomeGridG);buildBase(scene);buildZones(scene);buildMinimap(biomeGridG);buildClouds(scene);buildSky(scene);buildIslands(scene);ATM.motes=new Motes(scene,520);ATM.top.copy(PAL.dayTop);ATM.hor.copy(PAL.dayHor);
+  biomeGridG=buildTerrain(scene);buildEnvironment(scene,biomeGridG);buildBase(scene);buildZones(scene);buildCaveShrooms(scene);buildMinimap(biomeGridG);buildClouds(scene);buildSky(scene);buildIslands(scene);ATM.motes=new Motes(scene,520);ATM.top.copy(PAL.dayTop);ATM.hor.copy(PAL.dayHor);
   fx=new FXPool(scene,500,true);fxs=new FXPool(scene,900,true);
   player=new Slime();recalcGear();player.pos.set(S.pos[0],0,S.pos[1]);if(!inWorld(player.pos.x,player.pos.z)||zoneOf(player.pos.x)!=='surface')player.pos.set(BASE.x+2,0,BASE.z+5);player.pos.y=slimeGround(player.pos.x,player.pos.z);
   syncParty();
@@ -3816,7 +4488,7 @@ function loop(now){requestAnimationFrame(loop);let dt=(now-last)/1000;last=now;i
   try{
   // --- プレイヤー／騎乗 ---
   const m=player.mount;
-  if(m&&!player.dead){m.drive(inp.dx,inp.dz,inp.mag,dt,inp.runOn&&S.st>5?1.4:1);
+  if(m&&!player.dead){m.drive(inp.dx,inp.dz,inp.mag,dt,game.rampage?1.5:(inp.runOn&&S.st>5?1.4:1));mountAssist(dt);
     if(inp.runOn&&inp.mag>0.5)S.st=Math.max(0,S.st-dt*2.6);
     if(m.flying){S.st=Math.max(0,S.st-dt*1.1/Math.sqrt(game.gs.stam));if(INP.up){m.flyH=Math.min(flyCap(m),m.flyH+dt*9);if(m.flyH>=flyCap(m)-0.05)capHint(m);}if(INP.down){m.flyH=Math.max(2.5,m.flyH-dt*9);}
       if(S.st<=0){if(H(m.pos.x,m.pos.z)<-0.7&&!m.sp.swim){m.flyH=Math.max(1.5,m.flyH-dt*6);}else{m.flying=false;toast('スタミナ切れ！着陸する');}}}
@@ -3830,24 +4502,23 @@ function loop(now){requestAnimationFrame(loop);let dt=(now-last)/1000;last=now;i
   for(const d of all){
     for(const k in d.cd)d.cd[k]-=dt;
     if(d.pend.length){d.pend=d.pend.filter(p=>{p.t-=dt;if(p.t<=0){if(!d.dead)p.fn();return false;}return true;});}
-    if(d.dead){d.speed=0;if(d.team==='wild'){d.dead-=dt;if(d.dead<=0&&!d._remove){d._remove=true;d.center(_v);fxs.burst(_v.x,_v.y,_v.z,24,[1,1,1],4,0.8,0.3,-1);}}
+    if(d.dead){d.speed=0;if(d.team==='wild'){d.dead-=dt;if(d.dead<=0&&!d._remove&&!d.devouring){d._remove=true;d.center(_v);fxs.burst(_v.x,_v.y,_v.z,24,[1,1,1],4,0.8,0.3,-1);}}
       else{d.dead=Math.min(d.dead+dt,3);if(d.dead>2.5)d.rig.setVisible(false);}}
     if(!d.dead||d.team==='wild')d.physics(dt);
     const dist=d.pos.distanceTo(_camT);d.camDist=dist;const vis=dist<125&&!(d.team==='ally'&&d.dead>2.5);d.rig.setVisible(vis);
-    if(vis)d.animate(dt,d.isMount);
+    if(vis&&!(d.camoHidden&&d.camoStill>1))d.animate(dt,d.isMount);if(d.camoHidden)d.camoStill=(d.camoStill||0)+dt;else d.camoStill=0;
   }
-  player.update(dt,inp);slimeTick(dt,inp);zoneTick(dt);mirageTick(dt);
+  player.update(dt,inp);slimeTick(dt,inp);rageTick(dt);zoneTick(dt);shroomTick(dt);mirageTick(dt);swarmTick(dt);faunaTick(dt);
   updateCombatFX(dt);fx.update(dt);fxs.update(dt);
   // --- サバイバル ---
   S.hunger=Math.max(0,S.hunger-dt*(0.1+(inp.runOn?0.08:0)));
   if(S.hunger<=0){S.hp-=dt*1.2;if(S.hp<=0&&!player.dead){S.hp=0;player.die();}}
   else if(S.hunger>35&&player.hitT<-3&&S.hp<pMaxHp())S.hp=Math.min(pMaxHp(),S.hp+dt*0.9*game.gs.regen);
-  if(!m&&!(inp.runOn&&inp.mag>0.5))S.st=Math.min(pMaxSt(),S.st+dt*(inp.mag>0.1?7:13)*game.gs.stam);
-  if(!m&&inp.runOn&&inp.mag>0.5)S.st=Math.max(0,S.st-dt*6);
+  if(!m&&!(inp.runOn&&inp.mag>0.5))S.st=Math.min(pMaxSt(),S.st+dt*(inp.mag>0.1?7:13)*game.gs.stam*(game.exhaustT>0?0.25:1));
   for(const a of game.allies){if(!a.dead&&a.hp<a.maxHp&&!a.ai.target){a.hp=Math.min(a.maxHp,a.hp+a.maxHp*0.006*dt);if(a.data)a.data.hp=a.hp;}}
   // --- 出現・発見 ---
   spawnT-=dt;if(spawnT<=0){spawnT=1.2;spawnWild();despawn();}
-  discT-=dt;if(discT<=0){discT=0.5;for(const d of game.wild){if(!d.dead&&!S.seen[d.sp.id]&&d.pos.distanceTo(_camT)<35){S.seen[d.sp.id]=1;if(!S.dex[d.sp.id])toast(`👁 見たことのないドラゴンだ…（捕食すると図鑑に登録される）`,2.5);}}}
+  discT-=dt;if(discT<=0){discT=0.5;for(const d of game.wild){if(!d.dead&&!d.camoHidden&&!S.seen[d.sp.id]&&d.pos.distanceTo(_camT)<35){S.seen[d.sp.id]=1;if(!S.dex[d.sp.id])toast(`👁 見たことのないドラゴンだ…（捕食すると図鑑に登録される）`,2.5);}}}
   envT-=dt;if(envT<=0){envT=1;updateEnvTimers(1);}
   bioT-=dt;if(bioT<=0){bioT=0.5;const b=biomeAt(_camT.x,_camT.z);if(b!==game.lastBiome){game.lastBiome=b;const el=$('banner');el.innerHTML='<div class="bt">'+BIOMES[b].n+'</div><div class="bs">'+BIOME_POEM[b]+'</div>';el.classList.remove('show');void el.offsetWidth;el.classList.add('show');
       $('biomeTag').textContent=BIOMES[b].n;}}
@@ -3860,10 +4531,12 @@ function loop(now){requestAnimationFrame(loop);let dt=(now-last)/1000;last=now;i
   const P=player.mount||player;// スライムが跳ねても画面が上下しないよう、カメラは地面の高さをゆっくり追う
   if(P.isPlayer){const gy=player.dead?P.pos.y:Math.max(slimeGround(P.pos.x,P.pos.z),P.air&&P.big?P.pos.y-1.2:-99);game.camY=game.camY===undefined?gy:lerp(game.camY,gy,1-Math.exp(-dt*2.5));}
   if(game.camX===undefined||Math.hypot(game.camX-P.pos.x,game.camZ-P.pos.z)>15){game.camX=P.pos.x;game.camZ=P.pos.z;}
-  const kc=1-Math.exp(-dt*(P.isPlayer?3.5:6));game.camX=lerp(game.camX,P.pos.x,kc);game.camZ=lerp(game.camZ,P.pos.z,kc);
-  const tgt=P.isPlayer?_v.set(game.camX,game.camY+0.9,game.camZ):P.rig.chest(_v);
+  const kc=1-Math.exp(-dt*(P.isPlayer?3.5:P.sp.serp?3:5));game.camX=lerp(game.camX,P.pos.x,kc);game.camZ=lerp(game.camZ,P.pos.z,kc);
+  // 変身中：くねくね動く体に合わせて画面が揺れないよう、注視点をなめらかにする
+  if(!P.isPlayer){const cy=P.rig.chest(_v).y;game.camMY=game.camMY===undefined||game.camMP!==P?cy:lerp(game.camMY,cy,1-Math.exp(-dt*2.2));game.camMP=P;}
+  const tgt=P.isPlayer?_v.set(game.camX,game.camY+0.9,game.camZ):_v.set(game.camX,game.camMY,game.camZ);
   if(P.isPlayer&&player.dead)tgt.y-=0.5;
-  const dist=game.camDist+(player.mount?player.mount.S*3.2:0);const cp=game.camPitch;
+  const dist=(player.mount?game.camDist:game.camDist*clamp(0.55+player.base()*0.8,0.68,1))+(player.mount?player.mount.S*3.2:0);const cp=game.camPitch;
   const want=_w.set(tgt.x+Math.sin(game.camYaw)*Math.cos(cp)*dist,tgt.y+Math.sin(cp)*dist,tgt.z+Math.cos(game.camYaw)*Math.cos(cp)*dist);
   const gyC=H(want.x,want.z)+1.2;if(want.y<gyC)want.y=gyC;
   camera.position.lerp(want,1-Math.exp(-dt*(P.isPlayer?4:6)));if(!game._camInit){camera.position.copy(want);game._camInit=true;}
